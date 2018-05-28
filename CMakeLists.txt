@@ -106,9 +106,9 @@ find_package(TinyDNN REQUIRED)
 
 ###############################################################################
 #TBB
-#find_package(TBB REQUIRED)
-#include_directories(${TBB_INCLUDE_DIRS})
-#add_definitions(${TBB_DEFINITIONS})
+find_package(TBB REQUIRED)
+include_directories(${TBB_INCLUDE_DIRS})
+add_definitions(${TBB_DEFINITIONS})
 
 SET(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
 
@@ -129,7 +129,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_library(${PROJECT_NAME}-core STATIC ${CMAKE_CURRENT_SOURCE_DIR}/src/detectcone.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/cone.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/point.cpp ${CMAKE_BINARY_DIR}/opendlv-standard-message-set.cpp)
 
 # Add custom libs h
-set(LIBRARIES ${LIBRARIES} Threads::Threads ${OpenCV_LIBS} ${Eigen3_LIBS} ${TinyDNN_LIBS} rt) 
+set(LIBRARIES ${LIBRARIES} Threads::Threads ${OpenCV_LIBS} ${Eigen3_LIBS} ${TinyDNN_LIBS} ${TBB_LIBRARIES} rt) 
 
 MESSAGE(STATUS "heej")
 MESSAGE(STATUS ${LIBRARIES})

@@ -39,26 +39,7 @@ services:
         volumes:
          - /tmp/.X11-unix:/tmp/.X11-unix
          - .:/opt/tmp
-        command: "cfsd18-perception-detectcone --cid=${CID} --name=camera1 --width=2560 --height=720 --bpp=24 --verbose --id=1 --threshold=1.5 --timeDiffMilliseconds=20 --checkLidarMilliseconds=1000 --senderStamp=118 --attentionSenderStamp=116"
-
-    proxy-camera:
-        image: producer:latest #cproxy:cproxyv1
-        network_mode: host
-        group_add:
-            - video
-        ipc: host
-        devices:
-            - "/dev/video0:/dev/video1"
-        environment:
-            - DISPLAY=$DISPLAY
-        volumes:
-            - /tmp/.X11-unix:/tmp/.X11-unix
-            - "/dev/shm:/dev/shm"
-        ulimits:
-          memlock:
-            soft: 5600000
-            hard: 5600000
-        command: "opendlv-device-camera-opencv --name=camera1 --bgr2rgb --cid=${CID} --camera=/dev/video1 --width=2560 --height=720 --bpp=24 --freq=15 --verbose"
+        command: "cfsd18-perception-detectcone --cid=${CID} --name=camera0 --width=2560 --height=720 --bpp=24 --verbose --id=1 --threshold=1.5 --timeDiffMilliseconds=20 --checkLidarMilliseconds=1000 --senderStamp=118 --attentionSenderStamp=116"
 
     # proxy-camera:
     #     image: producer:latest #cproxy:cproxyv1
@@ -67,7 +48,7 @@ services:
     #         - video
     #     ipc: host
     #     devices:
-    #         - "/dev/video0:/dev/video0"
+    #         - "/dev/video0:/dev/video1"
     #     environment:
     #         - DISPLAY=$DISPLAY
     #     volumes:
@@ -75,8 +56,27 @@ services:
     #         - "/dev/shm:/dev/shm"
     #     ulimits:
     #       memlock:
-    #         soft: 691200
-    #         hard: 691200
-    #     command: "opendlv-device-camera-opencv --name=camera0 --bgr2rgb --cid=${CID} --camera=/dev/video0 --width=640 --height=360 --bpp=24 --freq=15 --verbose"
+    #         soft: 5529600
+    #         hard: 5529600
+    #     command: "opendlv-device-camera-opencv --name=camera1 --bgr2rgb --cid=${CID} --camera=/dev/video1 --width=2560 --height=720 --bpp=24 --freq=15 --verbose"
+
+    proxy-camera:
+        image: producer:latest #cproxy:cproxyv1
+        network_mode: host
+        group_add:
+            - video
+        ipc: host
+        devices:
+            - "/dev/video1:/dev/video0"
+        environment:
+            - DISPLAY=$DISPLAY
+        volumes:
+            - /tmp/.X11-unix:/tmp/.X11-unix
+            - "/dev/shm:/dev/shm"
+        ulimits:
+          memlock:
+            soft: 691200
+            hard: 691200
+        command: "opendlv-device-camera-opencv --name=camera0 --bgr2rgb --cid=${CID} --camera=/dev/video0 --width=640 --height=360 --bpp=24 --freq=15 --verbose"
 
     

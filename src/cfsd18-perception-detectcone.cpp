@@ -74,7 +74,7 @@ int32_t main(int32_t argc, char **argv) {
 
         (void)ID;
         (void)SIZE;
-        std::cout << "Making slammer" << VERBOSE << std::endl;
+        (void)VERBOSE;
 
         // Interface to a running OpenDaVINCI session (ignoring any incoming Envelopes).
         cluon::OD4Session od4{static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
@@ -116,8 +116,8 @@ int32_t main(int32_t argc, char **argv) {
                 // cv::waitKey(2);
                 // cv::imwrite("test.png",img);
 
-                // cv::Mat img2 = cv::imread("0.png");
-                detectcone.forwardDetectionORB(img);
+                cv::Mat img2 = cv::imread("0.png");
+                detectcone.forwardDetectionORB(img2);
                 frameCounter++;
             }
 
