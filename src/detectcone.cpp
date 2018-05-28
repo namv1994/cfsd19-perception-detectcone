@@ -39,9 +39,9 @@ DetectCone::DetectCone(std::map<std::string, std::string> commandlineArguments, 
 , m_lidarIsWorking(false)
 , m_checkLiarMilliseconds()
 , m_count()
-, m_patchSize()
-, m_width()
-, m_height()
+, m_patchSize(64)
+, m_width(672)
+, m_height(376)
 {
   m_diffVec = 0;
   m_pointMatched = Eigen::MatrixXd::Zero(4,1);
@@ -147,24 +147,6 @@ void DetectCone::blockMatching(cv::Mat& disp, cv::Mat imgL, cv::Mat imgR){
 }
 
 void DetectCone::reconstruction(cv::Mat img, cv::Mat& Q, cv::Mat& disp, cv::Mat& rectified, cv::Mat& XYZ){
-  // cv::Mat mtxLeft = (cv::Mat_<double>(3, 3) <<
-  //   350.6847, 0, 332.4661,
-  //   0, 350.0606, 163.7461,
-  //   0, 0, 1);
-  // cv::Mat distLeft = (cv::Mat_<double>(5, 1) << -0.1674, 0.0158, 0.0057, 0, 0);
-  // cv::Mat mtxRight = (cv::Mat_<double>(3, 3) <<
-  //   351.9498, 0, 329.4456,
-  //   0, 351.0426, 179.0179,
-  //   0, 0, 1);
-  // cv::Mat distRight = (cv::Mat_<double>(5, 1) << -0.1700, 0.0185, 0.0048, 0, 0);
-  // cv::Mat R = (cv::Mat_<double>(3, 3) <<
-  //   0.9997, 0.0015, 0.0215,
-  //   -0.0015, 1, -0.00008,
-  //   -0.0215, 0.00004, 0.9997);
-  // cv::Mat T = (cv::Mat_<double>(3, 1) << -0.1191807, 0.0001532, 0.0011225);
-  // cv::Size stdSize = cv::Size(m_width, m_height);
-
-  //official
   cv::Mat mtxLeft = (cv::Mat_<double>(3, 3) <<
     349.891, 0, 334.352,
     0, 349.891, 187.937,
@@ -186,8 +168,8 @@ void DetectCone::reconstruction(cv::Mat img, cv::Mat& Q, cv::Mat& disp, cv::Mat&
   cv::Mat imgL(img, cv::Rect(0, 0, width/2, height));
   cv::Mat imgR(img, cv::Rect(width/2, 0, width/2, height));
 
-  // cv::resize(imgL, imgL, stdSize);
-  // cv::resize(imgR, imgR, stdSize);
+  cv::resize(imgL, imgL, stdSize);
+  cv::resize(imgR, imgR, stdSize);
 
   //std::cout << imgR.size() <<std::endl;
 
@@ -438,11 +420,11 @@ void DetectCone::xyz2xy(cv::Mat Q, cv::Point3f xyz, cv::Point2f& xy, int& radius
   float X = xyz.x;
   float Y = xyz.y;
   float Z = xyz.z;
-  float Cx = -Q.at<float>(0,3);
-  float Cy = -Q.at<float>(1,3);
-  float f = Q.at<float>(2,3);
-  float a = Q.at<float>(3,2);
-  float b = Q.at<float>(3,3);
+  float Cx = float(-Q.at<double>(0,3));
+  float Cy = float(-Q.at<double>(1,3));
+  float f = float(Q.at<double>(2,3));
+  float a = float(Q.at<double>(3,2));
+  float b = float(Q.at<double>(3,3));
   float d = (f - Z * b ) / ( Z * a);
   xy.x = X * ( d * a + b ) + Cx;
   xy.y = Y * ( d * a + b ) + Cy;
@@ -463,10 +445,10 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
   img.copyTo(imgSource);
 
   int rowT = 190;
-  int rowB = 376;//320;
+  int rowB = 320;
   imgRoI = img.rowRange(rowT, rowB);
 
-  cv::Ptr<cv::ORB> detector = cv::ORB::create(20);
+  cv::Ptr<cv::ORB> detector = cv::ORB::create(100);
   std::vector<cv::KeyPoint> keypoints;
   detector->detect(imgRoI, keypoints);
 
@@ -481,7 +463,7 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
     if(1){
       point3Ds.push_back(point3D);
     }
-    // std::cout << cv::Point3f(XYZ.at<cv::Point3f>(position)) << std::endl;
+    // std::cout << "position" << position << " " << XYZ.at<cv::Point3f>(position) << std::endl;
   }
   filterKeypoints(point3Ds);
   for(size_t i = 0; i < point3Ds.size(); i++){
@@ -490,21 +472,15 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
     int x = int(point2D.x);
     int y = int(point2D.y);
 
-    // float_t ratio = depth2resizeRate(point3Ds[i].x, point3Ds[i].z);
-    // int length = ratio * 25;
-    // int radius = (length-1)/2;
-    // radius = 12;
-
     cv::Rect roi;
     roi.x = std::max(x - radius, 0);
     roi.y = std::max(y - radius, 0);
     roi.width = std::min(x + radius, img.cols) - roi.x;
     roi.height = std::min(y + radius, img.rows) - roi.y;
 
-    //cv::circle(img, cv::Point (x,y), radius, cv::Scalar (0,0,0));
-    // // cv::circle(disp, cv::Point (x,y), 3, 0, CV_FILLED);
+    // cv::circle(img, cv::Point (x,y), 2, cv::Scalar (0,0,0));
     // cv::namedWindow("roi", cv::WINDOW_NORMAL);
-    // cv::imshow("roi", img_hsv);
+    // cv::imshow("roi", img);
     // cv::waitKey(0);
     //cv::destroyAllWindows();
 
@@ -691,7 +667,7 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
   // cv::waitKey(0);
 
   // savePath = imgPath.substr(0,index-7)+"/results/"+filename.substr(0,index2)+".png";
-  // cv::imwrite(savePath, img);
+  cv::imwrite("result.png", img);
 
   // savePath = imgPath.substr(0,index-7)+"/disp_filtered/"+filename.substr(0,index2)+".png";
   // std::cout<<savePath<<std::endl;
