@@ -55,11 +55,11 @@ class DetectCone {
   ~DetectCone();
   void nextContainer(cluon::data::Envelope data);
   void forwardDetectionORB(cv::Mat);
+  void getImgAndTimeStamp(std::pair<cluon::data::TimeStamp, cv::Mat>);
 
  private:
   void setUp(std::map<std::string, std::string> commandlineArguments); 
-  
-  void initializeCollection();
+  void saveRecord(cv::Mat);
   void blockMatching(cv::Mat&, cv::Mat, cv::Mat);
   void reconstruction(cv::Mat, cv::Mat&, cv::Mat&, cv::Mat&, cv::Mat&);
   void convertImage(cv::Mat, int, int, tiny_dnn::vec_t&);
@@ -72,6 +72,7 @@ class DetectCone {
   void xyz2xy(cv::Mat, cv::Point3f, cv::Point2f&, int&);
   void backwardDetection(cv::Mat, std::vector<cv::Point3f>, std::vector<int>&);
 
+  void initializeCollection();
   Eigen::MatrixXd Spherical2Cartesian(double, double, double);
   void Cartesian2Spherical(double, double, double, opendlv::logic::sensation::Point&);
   void SendCollectedCones(Eigen::MatrixXd);
@@ -85,23 +86,30 @@ class DetectCone {
   Eigen::MatrixXd m_finalPointCloud;
   double m_threshold;
   int64_t m_timeDiffMilliseconds;
-  cluon::data::TimeStamp m_lastTimeStamp;
+  cluon::data::TimeStamp m_coneTimeStamp;
+  cluon::data::TimeStamp m_imgTimeStamp;
   Eigen::MatrixXd m_coneCollector;
   uint32_t m_lastObjectId;
   bool m_newFrame;
+  bool m_processing;
   std::mutex m_coneMutex;
+  std::mutex m_imgMutex;
   bool m_recievedFirstImg;
   cv::Mat m_img;
+  std::pair<cluon::data::TimeStamp, cv::Mat> m_imgAndTimeStamp;
+  std::vector<std::pair<cluon::data::TimeStamp, cv::Mat>> m_imgGroup;
   tiny_dnn::network<tiny_dnn::sequential> m_slidingWindow;
-  tiny_dnn::network<tiny_dnn::sequential> m_efficientSlidingWindow;
   bool m_lidarIsWorking;
-  int64_t m_checkLiarMilliseconds;
-  uint32_t m_senderStamp = 0;
-  uint32_t m_attentionSenderStamp = 0;
-  uint32_t m_count = 0;
-  int m_patchSize = 64;
-  int m_width = 672;
-  int m_height = 376;
+  int64_t m_checkLidarMilliseconds;
+  uint32_t m_senderStamp = 118;
+  uint32_t m_attentionSenderStamp = 116;
+  uint32_t m_count;
+  int m_patchSize;
+  int m_width;
+  int m_height;
+  double m_xShift;                //lateral distance between camera and LiDAR 
+  double m_yShift;            //Height difference between camera and LiDAR
+  double m_zShift;        //Distance between camera and LiDAR in forward distance
 
   const double DEG2RAD = 0.017453292522222; // PI/180.0
   const double RAD2DEG = 57.295779513082325; // 1.0 / DEG2RAD;

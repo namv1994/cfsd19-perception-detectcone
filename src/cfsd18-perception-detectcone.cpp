@@ -27,109 +27,87 @@ int32_t main(int32_t argc, char **argv) {
         retCode = 1;
     } 
     else {
-//         bool const VERBOSE{commandlineArguments.count("verbose") != 0};
-//         (void)VERBOSE;
-//         // Interface to a running OpenDaVINCI session (ignoring any incoming Envelopes).
-//         cluon::data::Envelope data;
-//         //std::shared_ptr<Slam> slammer = std::shared_ptr<Slam>(new Slam(10));
-//         cluon::OD4Session od4{static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
-//         DetectCone detectcone(commandlineArguments,od4);
-
-//         cv::Mat img = cv::imread("0.png");
-//         detectcone.forwardDetectionORB(img);
-
-
-//         auto envelopeRecieved{[&logic = detectcone](cluon::data::Envelope &&envelope)
-//           {
-//             logic.nextContainer(envelope);
-//           } };
-
-//         od4.dataTrigger(opendlv::logic::perception::ObjectDirection::ID(),envelopeRecieved);
-//         od4.dataTrigger(opendlv::logic::perception::ObjectDistance::ID(),envelopeRecieved);
-
-//         // Just sleep as this microservice is data driven.
-//         using namespace std::literals::chrono_literals;
-//         while (od4.isRunning()) {
-//           std::this_thread::sleep_for(1s);
-//           std::chrono::system_clock::time_point tp;
-//         }
-//     }
-//     return retCode;
-// }
-
-
-
-    const uint32_t WIDTH{static_cast<uint32_t>(std::stoi(commandlineArguments["width"]))};
-    const uint32_t HEIGHT{static_cast<uint32_t>(std::stoi(commandlineArguments["height"]))};
-    const uint32_t BPP{static_cast<uint32_t>(std::stoi(commandlineArguments["bpp"]))};
-
-    if ( (BPP != 24) && (BPP != 8) ) {
-        std::cerr << argv[0] << ": bits per pixel must be either 24 or 8; found " << BPP << "." << std::endl;
-    }
-    else {
-        const uint32_t SIZE{WIDTH * HEIGHT * BPP/8};
-        const std::string NAME{(commandlineArguments["name"].size() != 0) ? commandlineArguments["name"] : "/camera1"};
-        const uint32_t ID{(commandlineArguments["id"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["id"])) : 0};
-        const bool VERBOSE{commandlineArguments.count("verbose") != 0};
-
-        (void)ID;
-        (void)SIZE;
-        (void)VERBOSE;
-
-        // Interface to a running OpenDaVINCI session (ignoring any incoming Envelopes).
-        cluon::OD4Session od4{static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
-
-        DetectCone detectcone(commandlineArguments, od4);
+        const uint32_t WIDTH{static_cast<uint32_t>(std::stoi(commandlineArguments["width"]))};
+        const uint32_t HEIGHT{static_cast<uint32_t>(std::stoi(commandlineArguments["height"]))};
+        const uint32_t BPP{static_cast<uint32_t>(std::stoi(commandlineArguments["bpp"]))};
         
-        size_t frameCounter = 0;
-        
-        std::unique_ptr<cluon::SharedMemory> sharedMemory(new cluon::SharedMemory{NAME});
-        if (sharedMemory && sharedMemory->valid()) {
-            std::clog << argv[0] << ": Found shared memory '" << sharedMemory->name() << "' (" << sharedMemory->size() << " bytes)." << std::endl;
+        uint32_t attentionSenderStamp = static_cast<uint32_t>(std::stoi(commandlineArguments["attentionSenderStamp"])); 
 
-            cv::Size size;
-            size.width = WIDTH;
-            size.height = HEIGHT;
+        if ( (BPP != 24) && (BPP != 8) ) {
+            std::cerr << argv[0] << ": bits per pixel must be either 24 or 8; found " << BPP << "." << std::endl;
+        }
+        else {
+            const uint32_t SIZE{WIDTH * HEIGHT * BPP/8};
+            const std::string NAME{(commandlineArguments["name"].size() != 0) ? commandlineArguments["name"] : "/camera1"};
+            const uint32_t ID{(commandlineArguments["id"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["id"])) : 0};
+            const bool VERBOSE{commandlineArguments.count("verbose") != 0};
 
-            IplImage *image = cvCreateImageHeader(size, IPL_DEPTH_8U, BPP/8);
-            sharedMemory->lock();
-            image->imageData = sharedMemory->data();
-            image->imageDataOrigin = image->imageData;
-            sharedMemory->unlock();
-            //size_t lastMapPoint = 0;
-            //uint32_t lastSentIndex = 0;
-            while (od4.isRunning()) {
-                // The shared memory uses a pthread broadcast to notify us; just sleep to get awaken up.
-                
-                sharedMemory->wait();
-                
+            (void)ID;
+            (void)SIZE;
+            (void)VERBOSE;
+
+            // Interface to a running OpenDaVINCI session (ignoring any incoming Envelopes).
+            cluon::OD4Session od4{static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
+            DetectCone detectcone(commandlineArguments, od4);
+
+            cluon::data::Envelope data;
+            auto envelopeRecieved{[&logic = detectcone, senderStamp = attentionSenderStamp](cluon::data::Envelope &&envelope)
+                {
+                    if(envelope.senderStamp() == senderStamp){
+                        logic.nextContainer(envelope);
+                    }
+                } 
+            };
+
+            od4.dataTrigger(opendlv::logic::perception::ObjectDirection::ID(),envelopeRecieved);
+            od4.dataTrigger(opendlv::logic::perception::ObjectDistance::ID(),envelopeRecieved);
+            
+            std::unique_ptr<cluon::SharedMemory> sharedMemory(new cluon::SharedMemory{NAME});
+            if (sharedMemory && sharedMemory->valid()) {
+                std::clog << argv[0] << ": Found shared memory '" << sharedMemory->name() << "' (" << sharedMemory->size() << " bytes)." << std::endl;
+
+                cv::Size size;
+                size.width = WIDTH;
+                size.height = HEIGHT;
+
+                IplImage *image = cvCreateImageHeader(size, IPL_DEPTH_8U, BPP/8);
                 sharedMemory->lock();
                 image->imageData = sharedMemory->data();
                 image->imageDataOrigin = image->imageData;
-                cv::Mat img = cv::cvarrToMat(image); 
-                
                 sharedMemory->unlock();
-                cv::waitKey(1);
-                
-                // cv::namedWindow("img", cv::WINDOW_NORMAL);
-                // cv::imshow("img", img);
-                // cv::waitKey(2);
-                // cv::imwrite("test.png",img);
+                while (od4.isRunning()) {
+                    // The shared memory uses a pthread broadcast to notify us; just sleep to get awaken up.
+                    
+                    sharedMemory->wait();
+                    
+                    sharedMemory->lock();
+                    image->imageData = sharedMemory->data();
+                    image->imageDataOrigin = image->imageData;
+                    cv::Mat img = cv::cvarrToMat(image); 
 
-                cv::Mat img2 = cv::imread("0.png");
-                detectcone.forwardDetectionORB(img2);
-                frameCounter++;
+                    cluon::data::TimeStamp imgTimestamp = cluon::time::now();
+                    // int64_t ts = cluon::time::toMicroseconds(imgTimestamp);
+                    // std::cout << "TimeStamp: " << ts << std::endl;
+                    std::pair<cluon::data::TimeStamp, cv::Mat> imgAndTimeStamp(imgTimestamp, img);
+                    detectcone.getImgAndTimeStamp(imgAndTimeStamp);
+                    
+                    sharedMemory->unlock();
+                    cv::waitKey(1);
+
+                    // if(img.empty()){
+                    //     continue;
+                    // }
+                    // detectcone.forwardDetectionORB(img);
+                }
+
+                cvReleaseImageHeader(&image);
             }
-
-            cvReleaseImageHeader(&image);
+            else {
+                std::cerr << argv[0] << ": Failed to access shared memory '" << NAME << "'." << std::endl;
+            }
         }
-        else {
-            std::cerr << argv[0] << ": Failed to access shared memory '" << NAME << "'." << std::endl;
-        }
-      }
-
-  }
-  return retCode;
+    }
+    return retCode;
 }
 
 
