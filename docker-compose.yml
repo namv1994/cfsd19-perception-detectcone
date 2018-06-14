@@ -44,9 +44,9 @@ services:
           - proxy-camera
         ulimits:
           memlock:
-            soft: 2000000 #1516032
-            hard: 2000000
-        command: "cfsd18-perception-detectcone --cid=118 --name=/camera0 --width=1344 --height=376 --bpp=24 --verbose --id=1 --threshold=1.5 --timeDiffMilliseconds=20 --checkLidarMilliseconds=1000 --senderStamp=118 --attentionSenderStamp=116"
+            soft: 5600000 #1516032
+            hard: 5600000
+        command: "cfsd18-perception-detectcone --cid=118 --name=/camera0 --width=2560 --height=720 --bpp=24 --verbose --id=1 --threshold=1.5 --timeDiffMilliseconds=20 --checkLidarMilliseconds=1000 --senderStamp=118 --attentionSenderStamp=116"
 
     proxy-camera:
         image: producer:latest #cproxy:cproxyv1
@@ -55,7 +55,7 @@ services:
             - video
         ipc: host
         devices:
-            - "/dev/video0:/dev/video0"
+            - "/dev/video1:/dev/video0"
         environment:
             - DISPLAY=$DISPLAY
         volumes:
@@ -63,14 +63,18 @@ services:
             - "/dev/shm:/dev/shm"
         ulimits:
           memlock:
-            soft: 2000000 #1516032
-            hard: 2000000
-        command: "opendlv-device-camera-opencv --name=/camera0 --bgr2rgb --cid=118 --camera=/dev/video0 --width=1344 --height=376 --bpp=24 --freq=15 --verbose"
+            soft: 5600000 #1516032
+            hard: 5600000
+        command: "opendlv-device-camera-opencv --name=/camera0 --bgr2rgb --cid=118 --camera=/dev/video0 --width=2560 --height=720 --bpp=24 --freq=15 --verbose"
 
-    # camera-consumer:
-    #     image: consumer:latest
+    # proxy-camera:
+    #     image: producer:latest #cproxy:cproxyv1
     #     network_mode: host
+    #     group_add:
+    #         - video
     #     ipc: host
+    #     devices:
+    #         - "/dev/video1:/dev/video0"
     #     environment:
     #         - DISPLAY=$DISPLAY
     #     volumes:
@@ -80,7 +84,7 @@ services:
     #       memlock:
     #         soft: 2000000 #1516032
     #         hard: 2000000
-    #     command: "--name=camera0 --bgr2rgb --cid=118 --width=1344 --height=376 --bpp=24 --freq=15 --verbose"        
+    #     command: "opendlv-device-camera-opencv --name=/camera0 --bgr2rgb --cid=118 --camera=/dev/video0 --width=1344 --height=376 --bpp=24 --freq=15 --verbose"
 
     # cfsd18-perception-imagerecorder:
     #     image: "imgrec:imgrecv0"

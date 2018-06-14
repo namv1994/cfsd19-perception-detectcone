@@ -905,9 +905,12 @@ void DetectCone::SendCollectedCones(Eigen::MatrixXd lidarCones)
     // }
     // m_img.copyTo(img);
 
-    if(minValue < 10000){
+    if(!m_img.empty() && minValue < 100000){
       std::cout << "matched lidar and image" << std::endl;  
       backwardDetection(img, pts, outputs);
+      for (int i = 0; i < lidarCones.cols(); i++){
+        lidarCones(3,i) = outputs[i];
+      }
       // cv::Mat rectified = m_img.colRange(0,672);
       // cv::resize(rectified, rectified, cv::Size(672, 376));
       // // rectified.convertTo(rectified, CV_8UC3);
@@ -915,10 +918,6 @@ void DetectCone::SendCollectedCones(Eigen::MatrixXd lidarCones)
       // // result[1].rowRange(320,680) = rectified;
       // cv::hconcat(result[0], m_img, coResult);
       // cv::imwrite("results/"+std::to_string(m_count++)+".png", coResult);
-    }
-        
-    for (int i = 0; i < lidarCones.cols(); i++){
-      lidarCones(3,i) = outputs[i];
     }
     SendMatchedContainer(lidarCones);
   }
