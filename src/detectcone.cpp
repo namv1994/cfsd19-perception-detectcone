@@ -881,42 +881,40 @@ void DetectCone::SendCollectedCones(Eigen::MatrixXd lidarCones)
     // std::cout << "Start detection" << std::endl;
     cv::Mat img;
     //Retrieve Image (Can be extended with timestamp matching)
-    {
-      std::unique_lock<std::mutex> lock(m_imgMutex);
-      std::vector<int64_t> timeDiffGroup;
-      for(size_t i = 0; i < m_imgGroup.size(); i++){
-        int64_t timeDiff = cluon::time::toMicroseconds(m_imgGroup[i].first) - cluon::time::toMicroseconds(m_coneTimeStamp);
-        timeDiffGroup.push_back(abs(timeDiff));
-      }
-      if (timeDiffGroup.size() == 0)
-        return;
-      int minIndex = 0;
-      int64_t minValue = timeDiffGroup[0];
-      for (size_t i = 1; i < timeDiffGroup.size(); i++){
-        if (timeDiffGroup[i]<minValue){
-          minIndex = i;
-          minValue = timeDiffGroup[i];
-        }
-      }
-      std::cout << "minIndex: " << minIndex << ", timeStampDiff: " << minValue;
-      img = m_imgGroup[minIndex].second;
-
-      // if(m_img.empty()){
-      //   return;
-      // }
-      // m_img.copyTo(img);
-      
+    std::unique_lock<std::mutex> lock(m_imgMutex);
+    std::vector<int64_t> timeDiffGroup;
+    for(size_t i = 0; i < m_imgGroup.size(); i++){
+      int64_t timeDiff = cluon::time::toMicroseconds(m_imgGroup[i].first) - cluon::time::toMicroseconds(m_coneTimeStamp);
+      timeDiffGroup.push_back(abs(timeDiff));
     }
-    if(!img.empty()){
-      // std::cout << "for real this time " << std::endl;  
+    if (timeDiffGroup.size() == 0)
+      return;
+    int minIndex = 0;
+    int64_t minValue = timeDiffGroup[0];
+    for (size_t i = 1; i < timeDiffGroup.size(); i++){
+      if (timeDiffGroup[i]<minValue){
+        minIndex = i;
+        minValue = timeDiffGroup[i];
+      }
+    }
+    std::cout << "minIndex: " << minIndex << ", minTimeStampDiff: " << minValue/1000 << "ms" << std::endl;
+    img = m_imgGroup[minIndex].second;
+
+    // if(m_img.empty()){
+    //   return;
+    // }
+    // m_img.copyTo(img);
+
+    if(minValue < 10000){
+      std::cout << "matched lidar and image" << std::endl;  
       backwardDetection(img, pts, outputs);
-          // cv::Mat rectified = m_img.colRange(0,672);
-          // cv::resize(rectified, rectified, cv::Size(672, 376));
-          // // rectified.convertTo(rectified, CV_8UC3);
-          // // rectified.copyTo(result[1]);
-          // // result[1].rowRange(320,680) = rectified;
-          // cv::hconcat(result[0], m_img, coResult);
-          // cv::imwrite("results/"+std::to_string(m_count++)+".png", coResult);
+      // cv::Mat rectified = m_img.colRange(0,672);
+      // cv::resize(rectified, rectified, cv::Size(672, 376));
+      // // rectified.convertTo(rectified, CV_8UC3);
+      // // rectified.copyTo(result[1]);
+      // // result[1].rowRange(320,680) = rectified;
+      // cv::hconcat(result[0], m_img, coResult);
+      // cv::imwrite("results/"+std::to_string(m_count++)+".png", coResult);
     }
         
     for (int i = 0; i < lidarCones.cols(); i++){

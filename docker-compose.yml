@@ -39,7 +39,7 @@ services:
         volumes:
          - /tmp/.X11-unix:/tmp/.X11-unix
          - .:/opt/tmp
-        command: "cfsd18-perception-detectcone --cid=${CID} --name=/camera1 --width=2560 --height=720 --bpp=24 --verbose --id=1 --threshold=1.5 --timeDiffMilliseconds=20 --checkLidarMilliseconds=1000 --senderStamp=118 --attentionSenderStamp=116"
+        command: "cfsd18-perception-detectcone --cid=${CID} --name=/camera1 --width=1344 --height=376 --bpp=24 --verbose --id=1 --threshold=1.5 --timeDiffMilliseconds=20 --checkLidarMilliseconds=1000 --senderStamp=118 --attentionSenderStamp=116"
 
     proxy-camera:
         image: producer:latest #cproxy:cproxyv1
@@ -56,9 +56,18 @@ services:
             - "/dev/shm:/dev/shm"
         ulimits:
           memlock:
-            soft: 5529600
-            hard: 5529600
-        command: "opendlv-device-camera-opencv --name=/camera1 --bgr2rgb --cid=${CID} --camera=/dev/video1 --width=2560 --height=720 --bpp=24 --freq=15"
+            soft: 1516032
+            hard: 1516032
+        command: "opendlv-device-camera-opencv --name=/camera1 --bgr2rgb --cid=${CID} --camera=/dev/video1 --width=1344 --height=376 --bpp=24 --freq=15 --verbose"
+
+    # cfsd18-perception-imagerecorder:
+    #     image: "imgrec:imgrecv0"
+    #     network_mode: "host"
+    #     ipc: host
+    #     volumes:
+    #     - ./images:/opt/images
+    #     - ./timestamp:/opt/timestamp/
+    #     command: "cfsd18-perception-imagerecorder --cid=${CID} --name=cam0 --width=1344 --height=376 --bpp=24 --verbose --id=1"
 
     # proxy-camera:
     #     image: producer:latest #cproxy:cproxyv1
