@@ -37,8 +37,10 @@ DetectCone::DetectCone(std::map<std::string, std::string> commandlineArguments, 
 , m_imgMutex()
 , m_recievedFirstImg(false)
 , m_img()
-, m_imgAndTimeStamp()
-, m_imgGroup()
+, m_imgAndTimeStamps()
+, m_timeStamps()
+, m_currentFrame(0)
+, m_offline(0)
 , m_slidingWindow()
 , m_lidarIsWorking(false)
 , m_checkLidarMilliseconds()
@@ -122,27 +124,64 @@ void DetectCone::nextContainer(cluon::data::Envelope data)
 }
 
 void DetectCone::getImgAndTimeStamp(std::pair<cluon::data::TimeStamp, cv::Mat> imgAndTimeStamp){
-  m_imgAndTimeStamp = imgAndTimeStamp;
-  if(m_imgGroup.size()>100){
-    m_imgGroup.clear();
+  if(m_imgAndTimeStamps.size()>100){
+    m_imgAndTimeStamps.clear();
   }
-  m_imgGroup.push_back(imgAndTimeStamp);
+  m_imgAndTimeStamps.push_back(imgAndTimeStamp);
 
   m_imgTimeStamp = imgAndTimeStamp.first;
   m_img = imgAndTimeStamp.second;
-  if(!m_recievedFirstImg){
-    m_recievedFirstImg = true;
-  }
 
-  int64_t timeDiff = cluon::time::toMicroseconds(m_imgTimeStamp) - cluon::time::toMicroseconds(m_coneTimeStamp);
-  if ((timeDiff > m_checkLidarMilliseconds*1000)){
-    std::cout << "Lidar fails! Camera detection only! " << std::endl;
-    m_lidarIsWorking = false;
-    forwardDetectionORB(m_img);
+  m_recievedFirstImg = true;
+}
+
+void DetectCone::getTimeStamp(const std::string path){
+  std::string line;
+  m_timeStamps.clear();
+  std::ifstream f(path);
+  if (f.is_open()){
+    while (getline(f,line)){
+      int64_t timeStamp = static_cast<int64_t>(std::stol(line));
+      m_timeStamps.push_back(timeStamp);
+    }
+    f.close();
+  }
+  else 
+    std::cout << "Unable to open timestamp file" << std::endl;
+
+  m_recievedFirstImg = true;
+  m_offline = true; 
+}
+
+void DetectCone::checkLidarState(){
+  if(m_offline){
+    if(cluon::time::toMicroseconds(m_coneTimeStamp) == 0){
+      std::cout << "Lidar fails! Camera detection only! " << std::endl;
+      m_lidarIsWorking = false;
+      if(m_currentFrame <= m_timeStamps.size()){
+        m_img = cv::imread("/opt/images/"+std::to_string(m_currentFrame++)+".png");
+        forwardDetectionORB(m_img);
+      }
+    }
+    else{
+      m_currentFrame = 0;
+      m_lidarIsWorking = true;
+    }
   }
   else{
-    m_lidarIsWorking = true;
-    // std::cout << "Lidar is working!" << std::endl;
+    int64_t timeDiff = cluon::time::toMicroseconds(m_imgTimeStamp) - cluon::time::toMicroseconds(m_coneTimeStamp);
+    if ((timeDiff > m_checkLidarMilliseconds*1000)){
+      std::cout << "Lidar fails! Camera detection only! " << std::endl;
+      m_lidarIsWorking = false;
+      if(m_img.empty()){
+        return;
+      }
+      forwardDetectionORB(m_img);
+    }
+    else{
+      m_lidarIsWorking = true;
+      // std::cout << "Lidar is working!" << std::endl;
+    }
   }
 }
 
@@ -879,35 +918,43 @@ void DetectCone::SendCollectedCones(Eigen::MatrixXd lidarCones)
       pts.push_back(cv::Point3d(m_xShift+lidarCones(0,i), m_yShift+lidarCones(2,i), m_zShift+lidarCones(1,i)));
     }
     // std::cout << "Start detection" << std::endl;
-    cv::Mat img;
     //Retrieve Image (Can be extended with timestamp matching)
     std::unique_lock<std::mutex> lock(m_imgMutex);
-    std::vector<int64_t> timeDiffGroup;
-    for(size_t i = 0; i < m_imgGroup.size(); i++){
-      int64_t timeDiff = cluon::time::toMicroseconds(m_imgGroup[i].first) - cluon::time::toMicroseconds(m_coneTimeStamp);
-      timeDiffGroup.push_back(abs(timeDiff));
-    }
-    if (timeDiffGroup.size() == 0)
-      return;
-    int minIndex = 0;
-    int64_t minValue = timeDiffGroup[0];
-    for (size_t i = 1; i < timeDiffGroup.size(); i++){
-      if (timeDiffGroup[i]<minValue){
-        minIndex = i;
-        minValue = timeDiffGroup[i];
+
+    int minIndex;
+    int64_t minValue;
+    if(m_offline){
+      minIndex = m_currentFrame;
+      minValue = abs(m_timeStamps[minIndex] - cluon::time::toMicroseconds(m_coneTimeStamp));
+      for (size_t i = minIndex+1; i < m_timeStamps.size(); i++){
+        int64_t timeDiff = abs(m_timeStamps[i]- cluon::time::toMicroseconds(m_coneTimeStamp));
+        if (timeDiff<minValue){
+          minIndex = i;
+          minValue = timeDiff;
+        }
       }
+      m_img = cv::imread("opt/images/"+std::to_string(minIndex)+".png");
+      m_currentFrame = minIndex;
+    }
+    else{
+      if (m_imgAndTimeStamps.size() == 0)
+        return;
+      minIndex = 0;
+      minValue = abs(cluon::time::toMicroseconds(m_imgAndTimeStamps[minIndex].first) - cluon::time::toMicroseconds(m_coneTimeStamp));
+      for (size_t i = 1; i < m_imgAndTimeStamps.size(); i++){
+        int64_t timeDiff = abs(cluon::time::toMicroseconds(m_imgAndTimeStamps[i].first)- cluon::time::toMicroseconds(m_coneTimeStamp));
+        if (timeDiff<minValue){
+          minIndex = i;
+          minValue = timeDiff;
+        }
+      }
+      m_img = m_imgAndTimeStamps[minIndex].second;
     }
     std::cout << "minIndex: " << minIndex << ", minTimeStampDiff: " << minValue/1000 << "ms" << std::endl;
-    img = m_imgGroup[minIndex].second;
 
-    // if(m_img.empty()){
-    //   return;
-    // }
-    // m_img.copyTo(img);
-
-    if(!m_img.empty() && minValue < 100000){
+    if(minValue < 100000){
       std::cout << "matched lidar and image" << std::endl;  
-      backwardDetection(img, pts, outputs);
+      backwardDetection(m_img, pts, outputs);
       for (int i = 0; i < lidarCones.cols(); i++){
         lidarCones(3,i) = outputs[i];
       }

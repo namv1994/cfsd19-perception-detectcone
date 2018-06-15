@@ -54,8 +54,10 @@ class DetectCone {
   DetectCone &operator=(DetectCone const &) = delete;
   ~DetectCone();
   void nextContainer(cluon::data::Envelope data);
-  void forwardDetectionORB(cv::Mat);
+  void checkLidarState();
   void getImgAndTimeStamp(std::pair<cluon::data::TimeStamp, cv::Mat>);
+  void getTimeStamp(const std::string);
+
 
  private:
   void setUp(std::map<std::string, std::string> commandlineArguments); 
@@ -70,6 +72,7 @@ class DetectCone {
   void gather_points(cv::Mat, std::vector<float>, std::vector<int>&, std::vector<float>&);
   void filterKeypoints(std::vector<cv::Point3f>&);
   void xyz2xy(cv::Mat, cv::Point3f, cv::Point2f&, int&);
+  void forwardDetectionORB(cv::Mat);
   void backwardDetection(cv::Mat, std::vector<cv::Point3f>, std::vector<int>&);
 
   void initializeCollection();
@@ -96,8 +99,10 @@ class DetectCone {
   std::mutex m_imgMutex;
   bool m_recievedFirstImg;
   cv::Mat m_img;
-  std::pair<cluon::data::TimeStamp, cv::Mat> m_imgAndTimeStamp;
-  std::vector<std::pair<cluon::data::TimeStamp, cv::Mat>> m_imgGroup;
+  std::vector<std::pair<cluon::data::TimeStamp, cv::Mat>> m_imgAndTimeStamps;
+  std::vector<int64_t> m_timeStamps;
+  uint32_t m_currentFrame;
+  bool m_offline;
   tiny_dnn::network<tiny_dnn::sequential> m_slidingWindow;
   bool m_lidarIsWorking;
   int64_t m_checkLidarMilliseconds;

@@ -30,81 +30,86 @@ int32_t main(int32_t argc, char **argv) {
         const uint32_t WIDTH{static_cast<uint32_t>(std::stoi(commandlineArguments["width"]))};
         const uint32_t HEIGHT{static_cast<uint32_t>(std::stoi(commandlineArguments["height"]))};
         const uint32_t BPP{static_cast<uint32_t>(std::stoi(commandlineArguments["bpp"]))};
+        bool offline{static_cast<bool>(std::stoi(commandlineArguments["offline"]))};
         
         uint32_t attentionSenderStamp = static_cast<uint32_t>(std::stoi(commandlineArguments["attentionSenderStamp"])); 
 
-        if ( (BPP != 24) && (BPP != 8) ) {
-            std::cerr << argv[0] << ": bits per pixel must be either 24 or 8; found " << BPP << "." << std::endl;
+        const bool VERBOSE{commandlineArguments.count("verbose") != 0};
+        (void)VERBOSE;
+        
+        cluon::OD4Session od4{static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
+        DetectCone detectcone(commandlineArguments, od4);
+
+        cluon::data::Envelope data;
+        auto envelopeRecieved{[&logic = detectcone, senderStamp = attentionSenderStamp](cluon::data::Envelope &&envelope)
+            {
+                if(envelope.senderStamp() == senderStamp){
+                    logic.nextContainer(envelope);
+                }
+            } 
+        };
+
+        od4.dataTrigger(opendlv::logic::perception::ObjectDirection::ID(),envelopeRecieved);
+        od4.dataTrigger(opendlv::logic::perception::ObjectDistance::ID(),envelopeRecieved);
+
+        if(offline){
+            detectcone.getTimeStamp("/opt/timestamp/timestamps.txt");
+            while (od4.isRunning()) {
+                detectcone.checkLidarState();
+                cv::waitKey(1);
+            }
         }
-        else {
-            const uint32_t SIZE{WIDTH * HEIGHT * BPP/8};
-            const std::string NAME{(commandlineArguments["name"].size() != 0) ? commandlineArguments["name"] : "/camera1"};
-            const uint32_t ID{(commandlineArguments["id"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["id"])) : 0};
-            const bool VERBOSE{commandlineArguments.count("verbose") != 0};
+        else{
+            if ( (BPP != 24) && (BPP != 8) ) {
+                std::cerr << argv[0] << ": bits per pixel must be either 24 or 8; found " << BPP << "." << std::endl;
+            }
+            else {
+                const uint32_t SIZE{WIDTH * HEIGHT * BPP/8};
+                const std::string NAME{(commandlineArguments["name"].size() != 0) ? commandlineArguments["name"] : "/camera1"};
+                const uint32_t ID{(commandlineArguments["id"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["id"])) : 0};
 
-            (void)ID;
-            (void)SIZE;
-            (void)VERBOSE;
+                (void)ID;
+                (void)SIZE;
+                
+                std::unique_ptr<cluon::SharedMemory> sharedMemory(new cluon::SharedMemory{NAME});
+                if (sharedMemory && sharedMemory->valid()) {
+                    std::clog << argv[0] << ": Found shared memory '" << sharedMemory->name() << "' (" << sharedMemory->size() << " bytes)." << std::endl;
 
-            // Interface to a running OpenDaVINCI session (ignoring any incoming Envelopes).
-            cluon::OD4Session od4{static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
-            DetectCone detectcone(commandlineArguments, od4);
+                    cv::Size size;
+                    size.width = WIDTH;
+                    size.height = HEIGHT;
 
-            cluon::data::Envelope data;
-            auto envelopeRecieved{[&logic = detectcone, senderStamp = attentionSenderStamp](cluon::data::Envelope &&envelope)
-                {
-                    if(envelope.senderStamp() == senderStamp){
-                        logic.nextContainer(envelope);
-                    }
-                } 
-            };
-
-            od4.dataTrigger(opendlv::logic::perception::ObjectDirection::ID(),envelopeRecieved);
-            od4.dataTrigger(opendlv::logic::perception::ObjectDistance::ID(),envelopeRecieved);
-            
-            std::unique_ptr<cluon::SharedMemory> sharedMemory(new cluon::SharedMemory{NAME});
-            if (sharedMemory && sharedMemory->valid()) {
-                std::clog << argv[0] << ": Found shared memory '" << sharedMemory->name() << "' (" << sharedMemory->size() << " bytes)." << std::endl;
-
-                cv::Size size;
-                size.width = WIDTH;
-                size.height = HEIGHT;
-
-                IplImage *image = cvCreateImageHeader(size, IPL_DEPTH_8U, BPP/8);
-                sharedMemory->lock();
-                image->imageData = sharedMemory->data();
-                image->imageDataOrigin = image->imageData;
-                sharedMemory->unlock();
-                while (od4.isRunning()) {
-                    // The shared memory uses a pthread broadcast to notify us; just sleep to get awaken up.
-                    
-                    sharedMemory->wait();
-                    
+                    IplImage *image = cvCreateImageHeader(size, IPL_DEPTH_8U, BPP/8);
                     sharedMemory->lock();
                     image->imageData = sharedMemory->data();
                     image->imageDataOrigin = image->imageData;
-                    cv::Mat img = cv::cvarrToMat(image); 
-
-                    cluon::data::TimeStamp imgTimestamp = cluon::time::now();
-                    // int64_t ts = cluon::time::toMicroseconds(imgTimestamp);
-                    // std::cout << "TimeStamp: " << ts << std::endl;
-                    std::pair<cluon::data::TimeStamp, cv::Mat> imgAndTimeStamp(imgTimestamp, img);
-                    detectcone.getImgAndTimeStamp(imgAndTimeStamp);
-                    
                     sharedMemory->unlock();
-                    cv::waitKey(1);
+                    while (od4.isRunning()) {
+                        // The shared memory uses a pthread broadcast to notify us; just sleep to get awaken up.
+                        sharedMemory->wait();
+                        
+                        sharedMemory->lock();
+                        image->imageData = sharedMemory->data();
+                        image->imageDataOrigin = image->imageData;
+                        cv::Mat img = cv::cvarrToMat(image); 
 
-                    // if(img.empty()){
-                    //     continue;
-                    // }
-                    // detectcone.forwardDetectionORB(img);
+                        cluon::data::TimeStamp imgTimestamp = cluon::time::now();
+                        // int64_t ts = cluon::time::toMicroseconds(imgTimestamp);
+                        // std::cout << "TimeStamp: " << ts << std::endl;
+                        std::pair<cluon::data::TimeStamp, cv::Mat> imgAndTimeStamp(imgTimestamp, img);
+                        detectcone.getImgAndTimeStamp(imgAndTimeStamp);
+                        detectcone.checkLidarState();
+                        
+                        sharedMemory->unlock();
+                        cv::waitKey(1);
+                    }
+                    cvReleaseImageHeader(&image);
                 }
-
-                cvReleaseImageHeader(&image);
+                else {
+                    std::cerr << argv[0] << ": Failed to access shared memory '" << NAME << "'." << std::endl;
+                }
             }
-            else {
-                std::cerr << argv[0] << ": Failed to access shared memory '" << NAME << "'." << std::endl;
-            }
+        
         }
     }
     return retCode;
