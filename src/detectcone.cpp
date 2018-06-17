@@ -41,7 +41,7 @@ DetectCone::DetectCone(std::map<std::string, std::string> commandlineArguments, 
 , m_timeStamps()
 , m_currentFrame(0)
 , m_offline(0)
-, m_slidingWindow()
+, m_CNN()
 , m_lidarIsWorking(false)
 , m_checkLidarMilliseconds()
 , m_count(0)
@@ -75,7 +75,7 @@ void DetectCone::setUp(std::map<std::string, std::string> commandlineArguments)
   m_checkLidarMilliseconds = static_cast<int64_t>(std::stoi(commandlineArguments["checkLidarMilliseconds"])); 
   m_senderStamp = static_cast<uint32_t>(std::stoi(commandlineArguments["senderStamp"])); 
 
-  slidingWindow("slidingWindow");
+  CNN("CNN");
 }
 
 void DetectCone::nextContainer(cluon::data::Envelope data)
@@ -200,19 +200,7 @@ void DetectCone::blockMatching(cv::Mat& disp, cv::Mat imgL, cv::Mat imgR){
   sbmL->setNumDisparities(32);
   sbmL->compute(grayL, grayR, dispL);
 
-  // auto wls_filter = cv::ximgproc::createDisparityWLSFilter(sbmL);
-  // cv::Ptr<cv::StereoMatcher> sbmR = cv::ximgproc::createRightMatcher(sbmL);
-  // sbmR->compute(grayR, grayL, dispR);
-  // wls_filter->setLambda(8000);
-  // wls_filter->setSigmaColor(0.8);
-  // wls_filter->filter(dispL, imgL, dispL, dispR);
   disp = dispL/16;
-
-  // cv::Mat disp8;
-  // cv::normalize(dispL, disp, 0, 255, 32, CV_8U);
-  // cv::namedWindow("disp", cv::WINDOW_AUTOSIZE);
-  // cv::imshow("disp", imgL+imgR);
-  // cv::waitKey(10);
 }
 
 void DetectCone::reconstruction(cv::Mat img, cv::Mat& Q, cv::Mat& disp, cv::Mat& rectified, cv::Mat& XYZ){
@@ -240,8 +228,6 @@ void DetectCone::reconstruction(cv::Mat img, cv::Mat& Q, cv::Mat& disp, cv::Mat&
   cv::resize(imgL, imgL, stdSize);
   cv::resize(imgR, imgR, stdSize);
 
-  //std::cout << imgR.size() <<std::endl;
-
   cv::Mat R1, R2, P1, P2;
   cv::Rect validRoI[2];
   cv::stereoRectify(mtxLeft, distLeft, mtxRight, distRight, stdSize, R, T, R1, R2, P1, P2, Q,
@@ -253,23 +239,7 @@ void DetectCone::reconstruction(cv::Mat img, cv::Mat& Q, cv::Mat& disp, cv::Mat&
   cv::remap(imgL, imgL, rmap[0][0], rmap[0][1], cv::INTER_LINEAR);
   cv::remap(imgR, imgR, rmap[1][0], rmap[1][1], cv::INTER_LINEAR);
 
-  // //check whether the camera is facing forward
-  // cv::Mat rectify = imgL+imgR;
-  // cv::line(rectify, cv::Point(336,0), cv::Point(336,378),cv::Scalar(0,0,0),1);
-  // cv::namedWindow("rectified", cv::WINDOW_NORMAL);
-  // cv::imshow("rectified", rectify);
-  // cv::waitKey(0);
-
-  // cv::imwrite("tmp/imgL.png", imgL);
-  // cv::imwrite("tmp/imgR.png", imgR);
-  // return;
-
   blockMatching(disp, imgL, imgR);
-
-  // cv::namedWindow("disp", cv::WINDOW_NORMAL);
-  // cv::imshow("disp", imgL+imgR);
-  // cv::waitKey(0);
-  // cv::waitKey(0);
 
   rectified = imgL;
 
@@ -290,7 +260,7 @@ void DetectCone::convertImage(cv::Mat img, int w, int h, tiny_dnn::vec_t& data){
   }
 }
 
-void DetectCone::slidingWindow(const std::string& dictionary) {
+void DetectCone::CNN(const std::string& dictionary) {
   using conv    = tiny_dnn::convolutional_layer;
   using fc      = tiny_dnn::fully_connected_layer;
   using tanh    = tiny_dnn::tanh_layer;
@@ -299,7 +269,7 @@ void DetectCone::slidingWindow(const std::string& dictionary) {
 
   tiny_dnn::core::backend_t backend_type = tiny_dnn::core::default_engine();
 
-  m_slidingWindow << conv(64, 64, 4, 3, 16, tiny_dnn::padding::valid, true, 2, 2, backend_type) << tanh()                                                   
+  m_CNN << conv(64, 64, 4, 3, 16, tiny_dnn::padding::valid, true, 2, 2, backend_type) << tanh()                                                   
      << conv(31, 31, 3, 16, 16, tiny_dnn::padding::valid, true, 2, 2, backend_type) << tanh() 
      // << dropout(15*15*16, 0.25)
      << conv(15, 15, 3, 16, 32, tiny_dnn::padding::valid, true, 2, 2, backend_type) << tanh() 
@@ -310,24 +280,24 @@ void DetectCone::slidingWindow(const std::string& dictionary) {
 
   // load nets
   std::ifstream ifs(dictionary.c_str());
-  ifs >> m_slidingWindow;
+  if (!ifs.good()){
+    std::cout << "CNN model does not exist!" << std::endl;
+    return;
+  }
+  ifs >> m_CNN;
 }
 
-std::vector <cv::Point> DetectCone::imRegionalMax(cv::Mat input, int nLocMax, double threshold, int minDistBtwLocMax)
+void DetectCone::imRegionalMax(std::vector<Cone>& cones, size_t label, cv::Mat input, int nLocMax, double threshold, int minDistBtwLocMax)
 {
     cv::Mat scratch = input.clone();
-    // std::cout<<scratch<<std::endl;
-    // cv::GaussianBlur(scratch, scratch, cv::Size(3,3), 0, 0);
-    std::vector <cv::Point> locations(0);
-    locations.reserve(nLocMax); // Reserve place for fast access
     for (int i = 0; i < nLocMax; i++) {
         cv::Point location;
         double maxVal;
-        cv::minMaxLoc(scratch, NULL,& maxVal, NULL,& location);
+        cv::minMaxLoc(scratch, NULL, &maxVal, NULL, &location);
         if (maxVal > threshold) {
             int col = location.x;
             int row = location.y;
-            locations.push_back(cv::Point(col, row));
+            cones.push_back(Cone{cv::Point(col, row),maxVal,label});
             int r0 = (row-minDistBtwLocMax > -1 ? row-minDistBtwLocMax : 0);
             int r1 = (row+minDistBtwLocMax < scratch.rows ? row+minDistBtwLocMax : scratch.rows-1);
             int c0 = (col-minDistBtwLocMax > -1 ? col-minDistBtwLocMax : 0);
@@ -343,7 +313,6 @@ std::vector <cv::Point> DetectCone::imRegionalMax(cv::Mat input, int nLocMax, do
             break;
         }
     }
-    return locations;
 }
 
 
@@ -423,7 +392,6 @@ void DetectCone::filterKeypoints(std::vector<cv::Point3f>& point3Ds){
         if (data[j].group == -1){ 
           data[j].group = groupId++;
           point3D = data[j].pt;
-          // std::cout<<j<<" type 1"<<" "<<data[j].pt.x<<","<<data[j].pt.y<<" group "<<data[j].group<<std::endl;
         }
       }
       else{   
@@ -462,7 +430,6 @@ void DetectCone::filterKeypoints(std::vector<cv::Point3f>& point3Ds){
         else{
           data[j].group = data[vecIndex[0]].group;
           point3D = data[j].pt;
-          // std::cout<<j<<" type 2"<<" "<<data[j].pt.x<<","<<data[j].pt.y<<" group "<<data[j].group<<std::endl;
         }
       }
       if(std::isnan(point3D.x)||std::isnan(point3D.y)||std::isnan(point3D.y))
@@ -470,19 +437,6 @@ void DetectCone::filterKeypoints(std::vector<cv::Point3f>& point3Ds){
       point3Ds.push_back(point3D);
     }
   }
-
-  // for (int p = 0; p < data.size(); p++){
-  //   std::cout<<p<<" "<<data[p].pt.x<<" "<<data[p].pt.y<<" group "<<data[p].group<<std::endl;
-  // }
-
-  // for (int r = 0; r < point3Ds.size(); r++){
-  //   std::cout<<"NO."<<r<<" "<<point3Ds[r].x<<","<<point3Ds[r].z<<std::endl;
-  // }
-
-  // cv::flip(result, result, 0);
-  // cv::namedWindow("result", cv::WINDOW_NORMAL);
-  // cv::imshow("result", result);
-  // cv::waitKey(0);
 }
 
 void DetectCone::xyz2xy(cv::Mat Q, cv::Point3f xyz, cv::Point2f& xy, int& radius){
@@ -502,7 +456,7 @@ void DetectCone::xyz2xy(cv::Mat Q, cv::Point3f xyz, cv::Point2f& xy, int& radius
 
 void DetectCone::forwardDetectionORB(cv::Mat img){
   //Given RoI by SIFT detector and detected by CNN
-  double threshold = 0.9;
+  double threshold = 0.6;
 
   std::vector<tiny_dnn::tensor_t> inputs;
   std::vector<int> verifiedIndex;
@@ -523,18 +477,16 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
   if(keypoints.size()==0)
     return;
 
-  cv::Mat probMap = cv::Mat::zeros(m_height, m_width, CV_64F);
-  cv::Mat indexMap = cv::Mat::zeros(m_height, m_width, CV_32S);
-
+  cv::Mat probMap[5] = cv::Mat::zeros(m_height, m_width, CV_64F);
+  
   std::vector<cv::Point3f> point3Ds;
   cv::Point2f point2D;
   for(size_t i = 0; i < keypoints.size(); i++){
     cv::Point position(int(keypoints[i].pt.x), int(keypoints[i].pt.y)+rowT);
     cv::Point3f point3D = XYZ.at<cv::Point3f>(position);
-    if(1){
+    if(point3D.y>0.8 && point3D.y<1.1){
       point3Ds.push_back(point3D);
     }
-    // std::cout << "position" << position << " " << XYZ.at<cv::Point3f>(position) << std::endl;
   }
   filterKeypoints(point3Ds);
   for(size_t i = 0; i < point3Ds.size(); i++){
@@ -549,25 +501,15 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
     roi.width = std::min(x + radius, img.cols) - roi.x;
     roi.height = std::min(y + radius, img.rows) - roi.y;
 
-    // cv::circle(img, cv::Point (x,y), 2, cv::Scalar (0,0,0));
-    // cv::namedWindow("roi", cv::WINDOW_NORMAL);
-    // cv::imshow("roi", img);
-    // cv::waitKey(0);
-    //cv::destroyAllWindows();
-
     if (0 > roi.x || 0 >= roi.width || roi.x + roi.width > img.cols || 0 > roi.y || 0 >= roi.height || roi.y + roi.height > img.rows){
       std::cout << "Wrong roi!" << std::endl;
       continue;
     }
     else{
       auto patchImg = img(roi);
-      // cv::namedWindow("roi", cv::WINDOW_NORMAL);
-      // cv::imshow("roi", patchImg);
-      // cv::waitKey(0);
       tiny_dnn::vec_t data;
       convertImage(patchImg, m_patchSize, m_patchSize, data);
       inputs.push_back({data});
-      // outputs.push_back(0);
       verifiedIndex.push_back(i);
       candidates.push_back(cv::Point(x,y));
     }
@@ -578,37 +520,38 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
   double resultResize = 20;
   cv::Mat result = cv::Mat::zeros(resultm_height, resultm_width, CV_8UC3);
   std::string labels[] = {"background", "blue", "yellow", "orange", "big orange"};
+  std::vector <Cone> cones;
 
   if(inputs.size()>0){
-    auto prob = m_slidingWindow.predict(inputs);
+    auto prob = m_CNN.predict(inputs);
     for(size_t i = 0; i < inputs.size(); i++){
       size_t maxIndex = 0;
       double maxProb = prob[i][0][0];
+      std::cout << prob[i][0][0] << " ";
       for(size_t j = 1; j < 5; j++){
+        std::cout << prob[i][0][j] << " ";
         if(prob[i][0][j] > maxProb){
           maxIndex = j;
           maxProb = prob[i][0][j];
         }
       }
-      // outputs[verifiedIndex[i]] = maxIndex;
+      std::cout << labels[maxIndex] << std::endl;
       int x = candidates[i].x;
       int y = candidates[i].y;
-      probMap.at<double>(y,x) = maxProb;
-      indexMap.at<int>(y,x) = maxIndex;
+      probMap[maxIndex].at<double>(y,x) = maxProb;
     }
-    std::vector <cv::Point> cones = imRegionalMax(probMap, 10, threshold, 10);
+    for(size_t i = 0; i < 5; i++){
+      imRegionalMax(cones, i, probMap[i], 10, threshold, 20);
+    }
 
     for(size_t i = 0; i < cones.size(); i++){
-      int x = cones[i].x;
-      int y = cones[i].y;
-      double maxProb = probMap.at<double>(y,x);
-      int maxIndex = indexMap.at<int>(y,x);
+      int x = cones[i].pt.x;
+      int y = cones[i].pt.y;
+      double maxProb = cones[i].prob;
+      int maxIndex = cones[i].label;
       cv::Point position(x, y);
       cv::Point3f point3D = XYZ.at<cv::Point3f>(position);
       std::string labelName = labels[maxIndex];
-      // float_t ratio = depth2resizeRate(point3D.x, point3D.z);
-      // int length = ratio * 25;
-      // int radius = (length-1)/2;
       int radius;
       cv::Point2f position_tmp;
       xyz2xy(Q, point3D, position_tmp, radius);
@@ -661,7 +604,7 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
   // cv::Mat result[2] = cv::Mat::zeros(resultm_height, resultm_width, CV_8UC3), coResult;
   // std::string labels[] = {"background", "blue", "yellow", "orange", "big orange"};
   // if(inputs.size()>0){
-  //   auto prob = m_slidingWindow.predict(inputs);
+  //   auto prob = m_CNN.predict(inputs);
   //   for(size_t i = 0; i < inputs.size(); i++){
   //     size_t maxIndex = 1;
   //     double maxProb = prob[i][0][1];
@@ -796,7 +739,7 @@ void DetectCone::backwardDetection(cv::Mat img, std::vector<cv::Point3f> pts, st
   }
 
   if(inputs.size()>0){
-    auto prob = m_slidingWindow.predict(inputs);
+    auto prob = m_CNN.predict(inputs);
     for(size_t i = 0; i < inputs.size(); i++){
       size_t maxIndex = 0;
       float_t maxProb = prob[i][0][0];

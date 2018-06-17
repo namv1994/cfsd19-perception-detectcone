@@ -65,8 +65,8 @@ class DetectCone {
   void blockMatching(cv::Mat&, cv::Mat, cv::Mat);
   void reconstruction(cv::Mat, cv::Mat&, cv::Mat&, cv::Mat&, cv::Mat&);
   void convertImage(cv::Mat, int, int, tiny_dnn::vec_t&);
-  void slidingWindow(const std::string&);
-  std::vector <cv::Point> imRegionalMax(cv::Mat, int, double, int);
+  void CNN(const std::string&);
+  void imRegionalMax(std::vector<Cone>&, size_t, cv::Mat, int, double, int);
   float median(std::vector<float>);
   float mean(std::vector<float>);
   void gather_points(cv::Mat, std::vector<float>, std::vector<int>&, std::vector<float>&);
@@ -103,7 +103,7 @@ class DetectCone {
   std::vector<int64_t> m_timeStamps;
   uint32_t m_currentFrame;
   bool m_offline;
-  tiny_dnn::network<tiny_dnn::sequential> m_slidingWindow;
+  tiny_dnn::network<tiny_dnn::sequential> m_CNN;
   bool m_lidarIsWorking;
   int64_t m_checkLidarMilliseconds;
   uint32_t m_senderStamp = 118;
