@@ -461,7 +461,6 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
   std::vector<tiny_dnn::tensor_t> inputs;
   std::vector<int> verifiedIndex;
   std::vector<cv::Point> candidates;
-  // std::vector<int> outputs;
 
   cv::Mat Q, disp, XYZ, imgRoI, imgSource;
   reconstruction(img, Q, disp, img, XYZ);
@@ -521,6 +520,8 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
   cv::Mat result = cv::Mat::zeros(resultm_height, resultm_width, CV_8UC3);
   std::string labels[] = {"background", "blue", "yellow", "orange", "big orange"};
   std::vector <Cone> cones;
+  Eigen::MatrixXd cameraCones;
+  int coneCount = 0;
 
   if(inputs.size()>0){
     auto prob = m_CNN.predict(inputs);
@@ -557,6 +558,9 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
       xyz2xy(Q, point3D, position_tmp, radius);
 
       if(radius>0){
+        Eigen::MatrixXd cone = Eigen::MatrixXd::Zero(4,1);
+        cone << point3D.x, point3D.z, -point3D.y, maxIndex;
+        cameraCones.col(coneCount++) = cone;
         if (labelName == "background"){
           std::cout << "No cone detected" << std::endl;
           cv::circle(img, position, radius, cv::Scalar (0,0,0));
@@ -690,9 +694,13 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
   cv::namedWindow("forwardDetectionORB", cv::WINDOW_NORMAL);
   cv::imshow("forwardDetectionORB", img);
   cv::waitKey(10);
+
+  if(coneCount){
+    SendMatchedContainer(cameraCones);
+  }
 }
 
-void DetectCone::backwardDetection(cv::Mat img, std::vector<cv::Point3f> pts, std::vector<int>& outputs){
+void DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& lidarCones){
   //Given RoI in 3D world, project back to the camera frame and then detect
   float_t threshold = 0.9f;
   cv::Mat disp, Q, XYZ;
@@ -700,12 +708,12 @@ void DetectCone::backwardDetection(cv::Mat img, std::vector<cv::Point3f> pts, st
   std::vector<tiny_dnn::tensor_t> inputs;
   std::vector<int> verifiedIndex;
   std::vector<cv::Vec3i> porperty;
-  outputs.clear();
 
-  for(size_t i = 0; i < pts.size(); i++){
+  for(int i = 0; i < lidarCones.cols(); i++){
     cv::Point2f point2D;
+    cv::Point3f lidarCone(float(m_xShift+lidarCones(0,i)), float(m_yShift+lidarCones(2,i)), float(m_zShift+lidarCones(1,i)));
     int radius;
-    xyz2xy(Q, pts[i], point2D, radius);
+    xyz2xy(Q, lidarCone, point2D, radius);
 
     int x = int(point2D.x);
     int y = int(point2D.y);
@@ -725,14 +733,14 @@ void DetectCone::backwardDetection(cv::Mat img, std::vector<cv::Point3f> pts, st
     // std::cout << "RoI for cone " << i << " is  x: " << roi.x << "y: " << roi.y << std::endl;
     if (0 >= roi.x || 0 >= roi.width || roi.x + roi.width > img.cols || 0 >= roi.y || 0 >= roi.height || roi.y + roi.height >= img.rows){
       std::cout << "Wrong roi!" << std::endl;
-      outputs.push_back(-1);
+      lidarCones(3,i) = -1;
     }
     else{
       auto patchImg = img(roi);
       tiny_dnn::vec_t data;
       convertImage(patchImg, m_patchSize, m_patchSize, data);
       inputs.push_back({data});
-      outputs.push_back(0);
+      lidarCones(3,i) = 0;
       verifiedIndex.push_back(i);
       porperty.push_back(cv::Vec3i(x,y,radius));
     }
@@ -749,7 +757,7 @@ void DetectCone::backwardDetection(cv::Mat img, std::vector<cv::Point3f> pts, st
           maxProb = prob[i][0][j];
         }
       }
-      outputs[verifiedIndex[i]] = maxIndex;
+      lidarCones(3, verifiedIndex[i]) = maxIndex;
       int x = porperty[i][0];
       int y = porperty[i][1];
       int radius = porperty[i][2];
@@ -777,9 +785,6 @@ void DetectCone::backwardDetection(cv::Mat img, std::vector<cv::Point3f> pts, st
   cv::waitKey(10);
 
   // cv::imwrite("results/"+std::to_string(m_count++)+".png", img);
-
-  // for(size_t i = 0; i < pts.size(); i++)
-  //   std::cout << i << ": " << outputs[i] << std::endl;
 }
 
 Eigen::MatrixXd DetectCone::Spherical2Cartesian(double azimuth, double zenimuth, double distance)
@@ -854,12 +859,7 @@ void DetectCone::SendCollectedCones(Eigen::MatrixXd lidarCones)
   }
   if(m_lidarIsWorking){
     std::cout << "Lidar is working!" << std::endl;
-    std::vector<cv::Point3f> pts;
-    std::vector<int> outputs;
 
-    for (int i = 0; i < lidarCones.cols(); i++){
-      pts.push_back(cv::Point3d(m_xShift+lidarCones(0,i), m_yShift+lidarCones(2,i), m_zShift+lidarCones(1,i)));
-    }
     // std::cout << "Start detection" << std::endl;
     //Retrieve Image (Can be extended with timestamp matching)
     std::unique_lock<std::mutex> lock(m_imgMutex);
@@ -897,10 +897,7 @@ void DetectCone::SendCollectedCones(Eigen::MatrixXd lidarCones)
 
     if(minValue < 100000){
       std::cout << "matched lidar and image" << std::endl;  
-      backwardDetection(m_img, pts, outputs);
-      for (int i = 0; i < lidarCones.cols(); i++){
-        lidarCones(3,i) = outputs[i];
-      }
+      backwardDetection(m_img, lidarCones);
       // cv::Mat rectified = m_img.colRange(0,672);
       // cv::resize(rectified, rectified, cv::Size(672, 376));
       // // rectified.convertTo(rectified, CV_8UC3);
