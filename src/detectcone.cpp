@@ -25,7 +25,7 @@ DetectCone::DetectCone(std::map<std::string, std::string> commandlineArguments, 
 , m_pointMatched()
 , m_diffVec()
 , m_finalPointCloud()
-, m_threshold()
+, m_threshold(0.9f)
 , m_timeDiffMilliseconds()
 , m_coneTimeStamp()
 , m_imgTimeStamp()
@@ -72,7 +72,7 @@ DetectCone::~DetectCone()
 
 void DetectCone::setUp(std::map<std::string, std::string> commandlineArguments)
 {
-  m_threshold = static_cast<double>(std::stod(commandlineArguments["threshold"]));
+  m_threshold = static_cast<float>(std::stof(commandlineArguments["threshold"]));
   m_timeDiffMilliseconds = static_cast<int64_t>(std::stoi(commandlineArguments["timeDiffMilliseconds"])); 
   m_checkLidarMilliseconds = static_cast<int64_t>(std::stoi(commandlineArguments["checkLidarMilliseconds"])); 
   m_senderStamp = static_cast<uint32_t>(std::stoi(commandlineArguments["senderStamp"]));
@@ -249,7 +249,7 @@ void DetectCone::reconstruction(cv::Mat img, cv::Mat& Q, cv::Mat& disp, cv::Mat&
 
   blockMatching(disp, imgL, imgR);
 
-  rectified = imgL;
+  imgL.copyTo(rectified);
 
   cv::reprojectImageTo3D(disp, XYZ, Q);
 }
@@ -501,8 +501,6 @@ void DetectCone::annotate(cv::Mat img, int maxIndex, cv::Point position, int rad
 
 void DetectCone::forwardDetectionORB(cv::Mat img){
   //Given RoI by SIFT detector and detected by CNN
-  double threshold = 0.6;
-
   std::vector<tiny_dnn::tensor_t> inputs;
   std::vector<int> verifiedIndex;
   std::vector<cv::Point> candidates;
@@ -589,7 +587,7 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
       probMap[maxIndex].at<double>(y,x) = maxProb;
     }
     for(size_t i = 0; i < 5; i++){
-      imRegionalMax(cones, i, probMap[i], 10, threshold, 20);
+      imRegionalMax(cones, i, probMap[i], 10, m_threshold, 20);
     }
 
     for(size_t i = 0; i < cones.size(); i++){
@@ -755,9 +753,8 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
   // }
 }
 
-void DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& lidarCones){
+void DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& lidarCones, int64_t minValue){
   //Given RoI in 3D world, project back to the camera frame and then detect
-  float_t threshold = 0.5f;
   cv::Mat disp, Q, XYZ, imgSource;
   reconstruction(img, Q, disp, img, XYZ);
   std::vector<tiny_dnn::tensor_t> inputs;
@@ -824,7 +821,7 @@ void DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& lidarCones){
       }
 
       std::string labels[] = {"background", "blue", "yellow", "orange", "big orange"};
-      if (maxIndex == 0 || maxProb < threshold){
+      if (maxIndex == 0 || maxProb < m_threshold){
         std::cout << "No cone detected" << std::endl;
         cv::circle(img, position, radius, cv::Scalar (0,0,0));
       } 
@@ -847,7 +844,7 @@ void DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& lidarCones){
   // cv::imshow("backwardDetection", img);
   // cv::waitKey(10);
 
-  cv::imwrite("/opt/results/"+std::to_string(m_count++)+".png", img);
+  cv::imwrite("/opt/results/"+std::to_string(m_count++)+"_"+std::to_string(minValue)+".png", img);
 }
 
 Eigen::MatrixXd DetectCone::Spherical2Cartesian(double azimuth, double zenimuth, double distance)
@@ -957,11 +954,12 @@ void DetectCone::SendCollectedCones(Eigen::MatrixXd lidarCones)
       }
       m_img = m_imgAndTimeStamps[minIndex].second;
     }
-    std::cout << "minIndex: " << minIndex << ", minTimeStampDiff: " << minValue/1000 << "ms" << std::endl;
+    minValue /= 1000;
+    std::cout << "minIndex: " << minIndex << ", minTimeStampDiff: " << minValue << "ms" << std::endl;
 
-    if(minValue < 100000){
+    if(minValue < 20){
       std::cout << "TimeStamp matched!" << std::endl;  
-      backwardDetection(m_img, lidarCones);
+      backwardDetection(m_img, lidarCones, minValue);
       // cv::Mat rectified = m_img.colRange(0,672);
       // cv::resize(rectified, rectified, cv::Size(672, 376));
       // // rectified.convertTo(rectified, CV_8UC3);

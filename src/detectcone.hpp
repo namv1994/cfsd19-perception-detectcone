@@ -76,7 +76,7 @@ class DetectCone {
   int countFiles(const char*);
   void annotate(cv::Mat, int, cv::Point, int);
   void forwardDetectionORB(cv::Mat);
-  void backwardDetection(cv::Mat, Eigen::MatrixXd&);
+  void backwardDetection(cv::Mat, Eigen::MatrixXd&, int64_t);
 
   void initializeCollection();
   Eigen::MatrixXd Spherical2Cartesian(double, double, double);
@@ -90,7 +90,7 @@ class DetectCone {
   Eigen::MatrixXd m_pointMatched;
   double m_diffVec;
   Eigen::MatrixXd m_finalPointCloud;
-  double m_threshold;
+  float m_threshold;
   int64_t m_timeDiffMilliseconds;
   cluon::data::TimeStamp m_coneTimeStamp;
   cluon::data::TimeStamp m_imgTimeStamp;

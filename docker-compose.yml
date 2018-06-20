@@ -38,7 +38,7 @@ services:
           - DISPLAY=$DISPLAY
         volumes:
          - /tmp/.X11-unix:/tmp/.X11-unix
-         - ./tmp:/opt
+         - ../tmp:/opt
          - "/dev/shm:/dev/shm"
          # - ../images:/opt/images/
          # - ../timestamp:/opt/timestamp/
@@ -48,7 +48,7 @@ services:
           memlock:
             soft: 5600000 #1516032
             hard: 5600000
-        command: "cfsd18-perception-detectcone --cid=118 --name=cam0 --width=2560 --height=720 --bpp=24 --verbose --id=1 --threshold=1.5 --timeDiffMilliseconds=20 --checkLidarMilliseconds=1000 --senderStamp=118 --attentionSenderStamp=116, --offline=1, --annotate=0"
+        command: "cfsd18-perception-detectcone --cid=118 --name=cam0 --width=2560 --height=720 --bpp=24 --verbose --id=1 --threshold=0.7 --timeDiffMilliseconds=20 --checkLidarMilliseconds=1000 --senderStamp=118 --attentionSenderStamp=116, --offline=1, --annotate=0"
 
     # proxy-camera:
     #     image: producer:latest #cproxy:cproxyv1
