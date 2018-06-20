@@ -31,6 +31,7 @@
 #include <utility>
 #include <string>
 #include <sstream>
+#include <dirent.h>
 
 #include "cluon-complete.hpp"
 #include "opendlv-standard-message-set.hpp"
@@ -65,13 +66,15 @@ class DetectCone {
   void blockMatching(cv::Mat&, cv::Mat, cv::Mat);
   void reconstruction(cv::Mat, cv::Mat&, cv::Mat&, cv::Mat&, cv::Mat&);
   void convertImage(cv::Mat, int, int, tiny_dnn::vec_t&);
-  void CNN(const std::string&);
+  void CNN(const std::string&, tiny_dnn::network<tiny_dnn::sequential>&);
   void imRegionalMax(std::vector<Cone>&, size_t, cv::Mat, int, double, int);
   float median(std::vector<float>);
   float mean(std::vector<float>);
   void gather_points(cv::Mat, std::vector<float>, std::vector<int>&, std::vector<float>&);
   void filterKeypoints(std::vector<cv::Point3f>&);
   void xyz2xy(cv::Mat, cv::Point3f, cv::Point2f&, int&);
+  int countFiles(const char*);
+  void annotate(cv::Mat, int, cv::Point, int);
   void forwardDetectionORB(cv::Mat);
   void backwardDetection(cv::Mat, Eigen::MatrixXd&);
 
@@ -103,7 +106,8 @@ class DetectCone {
   std::vector<int64_t> m_timeStamps;
   uint32_t m_currentFrame;
   bool m_offline;
-  tiny_dnn::network<tiny_dnn::sequential> m_CNN;
+  bool m_annotate;
+  tiny_dnn::network<tiny_dnn::sequential> m_forwardModel, m_backwardModel;
   bool m_lidarIsWorking;
   int64_t m_checkLidarMilliseconds;
   uint32_t m_senderStamp = 118;
