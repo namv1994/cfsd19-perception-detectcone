@@ -82,6 +82,27 @@ void DetectCone::setUp(std::map<std::string, std::string> commandlineArguments)
   CNN("backward", m_backwardModel);
 }
 
+void DetectCone::receiveCombinedMessage(cluon::data::TimeStamp currentFrameTime,std::map<int,ConePackage> currentFrame){
+  m_coneTimeStamp = currentFrameTime;
+  Eigen::MatrixXd cones = Eigen::MatrixXd::Zero(4,currentFrame.size());
+  std::map<int,ConePackage>::iterator it;
+  m_start = cluon::time::now();
+  int coneIndex = 0;
+  it =currentFrame.begin();
+  while(it != currentFrame.end()){
+    auto direction = std::get<0>(it->second);
+    auto distance = std::get<1>(it->second);
+    cones(0,coneIndex) = -direction.azimuthAngle();
+    cones(1,coneIndex) = direction.zenithAngle();
+    cones(2,coneIndex) = distance.distance();
+    coneIndex++;
+    it++;
+  }
+  if(cones.cols()>0 && m_recievedFirstImg){
+    SendCollectedCones(cones);
+  }
+}
+
 void DetectCone::nextContainer(cluon::data::Envelope data)
 {
   if (data.dataType() == opendlv::logic::perception::ObjectDirection::ID()) {
@@ -843,9 +864,9 @@ void DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& lidarCones){
     }
   }
 
-  // cv::namedWindow("backwardDetection", cv::WINDOW_NORMAL);
-  // cv::imshow("backwardDetection", img);
-  // cv::waitKey(10);
+  //cv::namedWindow("backwardDetection", cv::WINDOW_NORMAL);
+  //cv::imshow("backwardDetection", img);
+  //cv::waitKey(10);
 
   cv::imwrite("/opt/results/"+std::to_string(m_count++)+".png", img);
 }
@@ -984,26 +1005,28 @@ void DetectCone::SendMatchedContainer(Eigen::MatrixXd cones)
   std::chrono::system_clock::time_point tp = std::chrono::system_clock::now();
   cluon::data::TimeStamp sampleTime = cluon::time::convert(tp);
   m_od4.send(object,sampleTime,m_senderStamp);
-
+  
   for(int n = 0; n < cones.cols(); n++){
 
     opendlv::logic::sensation::Point conePoint;
     Cartesian2Spherical(cones(0,n), cones(1,n), cones(2,n), conePoint);
-
+    int index = cones.cols()-1-n;
     opendlv::logic::perception::ObjectDirection coneDirection;
-    coneDirection.objectId(n);
+    coneDirection.objectId(index);
     coneDirection.azimuthAngle(-conePoint.azimuthAngle());  //Negative to convert to car frame from LIDAR
     coneDirection.zenithAngle(conePoint.zenithAngle());
     m_od4.send(coneDirection,sampleTime,m_senderStamp);
 
     opendlv::logic::perception::ObjectDistance coneDistance;
-    coneDistance.objectId(n);
+    coneDistance.objectId(index);
     coneDistance.distance(conePoint.distance());
     m_od4.send(coneDistance,sampleTime,m_senderStamp);
 
     opendlv::logic::perception::ObjectType coneType;
-    coneType.objectId(n);
+    coneType.objectId(index);
     coneType.type(uint32_t(cones(3,n)));
     m_od4.send(coneType,sampleTime,m_senderStamp);
   }
+  cluon::data::TimeStamp endTime = cluon::time::now();
+  std::cout << "Delta in microseconds" << cluon::time::deltaInMicroseconds(endTime,m_start) << std::endl;
 }

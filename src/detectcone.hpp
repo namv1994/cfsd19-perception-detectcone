@@ -47,6 +47,7 @@
 #include "cone.hpp"
 #include "point.hpp"
 
+typedef std::tuple<opendlv::logic::perception::ObjectDirection,opendlv::logic::perception::ObjectDistance,opendlv::logic::perception::ObjectType> ConePackage;
 
 class DetectCone {
  public:
@@ -55,6 +56,7 @@ class DetectCone {
   DetectCone &operator=(DetectCone const &) = delete;
   ~DetectCone();
   void nextContainer(cluon::data::Envelope data);
+  void receiveCombinedMessage(cluon::data::TimeStamp currentFrameTime,std::map<int,ConePackage> currentFrame);
   void checkLidarState();
   void getImgAndTimeStamp(std::pair<cluon::data::TimeStamp, cv::Mat>);
   void getTimeStamp(const std::string);
@@ -94,6 +96,7 @@ class DetectCone {
   int64_t m_timeDiffMilliseconds;
   cluon::data::TimeStamp m_coneTimeStamp;
   cluon::data::TimeStamp m_imgTimeStamp;
+  cluon::data::TimeStamp m_start = {};
   Eigen::MatrixXd m_coneCollector;
   uint32_t m_lastObjectId;
   bool m_newFrame;

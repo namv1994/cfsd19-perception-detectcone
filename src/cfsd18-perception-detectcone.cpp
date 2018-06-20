@@ -16,6 +16,7 @@
  */
 
 #include "detectcone.hpp"
+#include "collector.hpp"
 
 int32_t main(int32_t argc, char **argv) {
     int32_t retCode{0};
@@ -39,12 +40,16 @@ int32_t main(int32_t argc, char **argv) {
         
         cluon::OD4Session od4{static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
         DetectCone detectcone(commandlineArguments, od4);
+        int timeOutMs = std::stoi(commandlineArguments["timeDiffMilliseconds"]);
+        int separationTimeMs = std::stoi(commandlineArguments["separationTimeMs"]);
+        Collector collector(detectcone,timeOutMs,separationTimeMs,2);
 
         cluon::data::Envelope data;
-        auto envelopeRecieved{[&logic = detectcone, senderStamp = attentionSenderStamp](cluon::data::Envelope &&envelope)
+        auto envelopeRecieved{[&logic = detectcone, senderStamp = attentionSenderStamp,&collector](cluon::data::Envelope &&envelope)
             {
                 if(envelope.senderStamp() == senderStamp){
-                    logic.nextContainer(envelope);
+                    //logic.nextContainer(envelope);
+                    collector.CollectCones(envelope);
                 }
             } 
         };
