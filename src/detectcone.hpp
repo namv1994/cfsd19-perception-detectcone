@@ -77,14 +77,15 @@ class DetectCone {
   void xyz2xy(cv::Mat, cv::Point3f, cv::Point2f&, int&);
   int countFiles(const char*);
   void annotate(cv::Mat, int, cv::Point, int);
-  void forwardDetectionORB(cv::Mat);
-  void backwardDetection(cv::Mat, Eigen::MatrixXd&, int64_t);
+  void forwardDetectionORB(cv::Mat img, std::vector<Cone> &cones);
+  std::vector<Cone> backwardDetection(cv::Mat, Eigen::MatrixXd&, int64_t);
+  std::vector<Cone> MatchCones(std::vector<Cone>);
 
-  void initializeCollection();
+  //void initializeCollection();
   Eigen::MatrixXd Spherical2Cartesian(double, double, double);
   void Cartesian2Spherical(double, double, double, opendlv::logic::sensation::Point&);
   void SendCollectedCones(Eigen::MatrixXd);
-  void SendMatchedContainer(Eigen::MatrixXd);
+  void SendMatchedContainer(std::vector<Cone>);
 
   cluon::OD4Session &m_od4;
   Eigen::MatrixXd m_lastLidarData;
@@ -106,6 +107,7 @@ class DetectCone {
   bool m_recievedFirstImg;
   cv::Mat m_img;
   std::vector<std::pair<cluon::data::TimeStamp, cv::Mat>> m_imgAndTimeStamps;
+  std::vector<std::pair<bool,Cone>> m_coneFrame = {};
   std::vector<int64_t> m_timeStamps;
   uint32_t m_currentFrame;
   bool m_offline;

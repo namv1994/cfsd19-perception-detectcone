@@ -24,12 +24,39 @@
 
 class Cone{
   public:
-    Cone(cv::Point m_pt, double m_prob, size_t m_label);
+    Cone(double x,double y,double z);
     ~Cone() = default;
 
-    cv::Point pt;
-    double prob;
-    size_t label;
+    cv::Point m_pt;
+    double m_prob;
+    size_t m_label;
+    double getX();
+    double getY();
+    double getZ();
+    size_t getLabel();
+    void setX(double x);
+    void setY(double y);
+    void setZ(double z);
+    void addHit();
+    int getHits();
+    void addMiss();
+    int getMisses();
+    bool isThisMe(double x, double y);
+    bool shouldBeInFrame();
+    bool shouldBeRemoved();
+    void setValidState(bool state);
+    bool isValid();
+    bool checkColor();
+    void addColor(size_t label);
+
+  private:
+    double m_x;
+    double m_y;
+    double m_z;
+    int m_hits = 0;
+    int m_missHit = 0;
+    bool m_isValid = true;
+    std::vector<uint32_t> m_colorList = {};
 };
 
 #endif

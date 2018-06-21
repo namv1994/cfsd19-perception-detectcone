@@ -20,12 +20,129 @@
 #include "cone.hpp"
 
 
-Cone::Cone(cv::Point m_pt, double m_prob, size_t m_label):
-  pt()
-, prob()
-, label()
+Cone::Cone(double x,double y,double z):
+  m_pt()
+, m_prob()
+, m_label()
+, m_x(x)
+, m_y(y)
+, m_z(z)
 {
-  pt = m_pt;
-  prob = m_prob;
-  label = m_label;
+}
+
+double Cone::getX(){
+  return m_x;
+}
+
+double Cone::getY(){
+  return m_y;
+}
+
+double Cone::getZ(){
+
+  return m_z;
+}
+
+size_t Cone::getLabel(){
+  return m_label;
+}
+
+void Cone::setX(double x){
+  //std::cout << "new x: " << x << " old x: " << m_x << std::endl;
+  m_x = x;
+}
+
+void Cone::setY(double y){
+  //std::cout << "new y: " << y << " old y: " << m_y << std::endl;
+  m_y = y;
+}
+void Cone::setZ(double z){
+  m_z = z;
+}
+void Cone::addHit(){
+  m_hits++;
+  m_missHit = 0;
+}
+int Cone::getHits(){
+  return m_hits;
+}
+void Cone::addMiss(){
+  m_missHit++;
+}
+
+int Cone::getMisses(){
+  return m_missHit;
+}
+
+bool Cone::isThisMe(double x, double y){
+  //double diffX = std::abs(m_x - x);
+  //double diffY = std::abs(m_y - y);
+  double distance = std::sqrt( (m_x - x)*(m_x - x) + (m_y - y)*(m_y - y) );
+  if(distance < 1){return true;}else{return false;}
+}
+
+bool Cone::checkColor(){
+  int nBlue = 0;
+  int nYellow = 0;
+  int nSmallOrange = 0;
+  int nBigOrange = 0;
+  for(uint32_t i = 1; i<5; i++){
+    for(uint32_t j = 0;j<m_colorList.size(); j++){
+      if(m_colorList[j]==i){
+        if(i == 1){
+          nBlue++;
+        }
+        else if(i == 2){
+          nYellow++;
+        }
+        else if(i == 3){
+          nSmallOrange++;
+        }
+        else if(i == 4){
+          nBigOrange++;
+        }
+      }
+    }
+  }
+  if(nBlue>static_cast<int>(0.65*m_colorList.size())){
+    m_label = 1;
+    return true;
+  }
+  else if(nYellow>static_cast<int>(0.65*m_colorList.size())){
+    m_label = 2;
+    return true;
+  }
+  else if(nSmallOrange>static_cast<int>(0.65*m_colorList.size())){
+    m_label = 3;
+    return true;
+  }
+  else if(nBigOrange>static_cast<int>(0.65*m_colorList.size())){
+    m_label = 4;
+    return true;
+  }
+  else{
+    return false;
+  }
+}
+
+void Cone::addColor(size_t label){
+  if(label < 10){
+    m_colorList.push_back(label);
+  }
+}
+
+bool Cone::shouldBeInFrame(){
+  if(m_hits >= 3 && m_y > 1 && m_missHit < 2 && m_isValid && checkColor()){return true;}else{return false;}
+}
+
+bool Cone::shouldBeRemoved(){
+  if(m_missHit >= 2 || m_y < 1 ){return true;}else{return false;}
+}
+
+void Cone::setValidState(bool state){
+  m_isValid = state;
+}
+
+bool Cone::isValid(){
+  return m_isValid;
 }
