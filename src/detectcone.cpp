@@ -162,16 +162,21 @@ void DetectCone::checkLidarState(){
     if(cluon::time::toMicroseconds(m_coneTimeStamp) == 0){
       std::cout << "No lidar data received" << std::endl;
       m_lidarIsWorking = false;
-      // if(m_currentFrame < m_timeStamps.size()){
-      //   m_img = cv::imread("/opt/images/"+std::to_string(m_currentFrame++)+".png");
-      //   forwardDetectionORB(m_img);
-      //   // cv::namedWindow("forwardDetectionORB", cv::WINDOW_NORMAL);
-      //   // cv::imshow("forwardDetectionORB", m_img);
-      //   // cv::waitKey(10);
-      //   std::cout << m_currentFrame << std::endl;
-      // }
+      if(m_currentFrame < m_timeStamps.size()){
+        m_img = cv::imread("/opt/images/"+std::to_string(m_currentFrame++)+".png");
+        if(!m_processing){
+          m_processing = true;
+          forwardDetectionORB(m_img);
+          m_processing = false;
+        }
+        // cv::namedWindow("forwardDetectionORB", cv::WINDOW_NORMAL);
+        // cv::imshow("forwardDetectionORB", m_img);
+        // cv::waitKey(10);
+        std::cout << m_currentFrame << std::endl;
+      }
     }
     else{
+      m_count = 0;
       m_currentFrame = 0;
       m_lidarIsWorking = true;
     }
@@ -459,7 +464,7 @@ void DetectCone::xyz2xy(cv::Mat Q, cv::Point3f xyz, cv::Point2f& xy, int& radius
   float d = (f - Z * b ) / ( Z * a);
   xy.x = X * ( d * a + b ) + Cx;
   xy.y = Y * ( d * a + b ) + Cy;
-  radius = int(0.4 * ( d * a + b ));
+  radius = int(0.5 * ( d * a + b ));
 }
 
 int DetectCone::countFiles(const char* path){
@@ -955,9 +960,8 @@ void DetectCone::SendCollectedCones(Eigen::MatrixXd lidarCones)
       m_img = m_imgAndTimeStamps[minIndex].second;
     }
     minValue /= 1000;
-    std::cout << "minIndex: " << minIndex << ", minTimeStampDiff: " << minValue << "ms" << std::endl;
-
-    if(minValue < 20){
+    if(minValue < 30){
+      std::cout << "minIndex: " << minIndex << ", minTimeStampDiff: " << minValue << "ms" << std::endl;
       std::cout << "TimeStamp matched!" << std::endl;  
       backwardDetection(m_img, lidarCones, minValue);
       // cv::Mat rectified = m_img.colRange(0,672);
