@@ -149,7 +149,7 @@ void DetectCone::nextContainer(cluon::data::Envelope data)
 }
 
 void DetectCone::getImgAndTimeStamp(std::pair<cluon::data::TimeStamp, cv::Mat> imgAndTimeStamp){
-  if(m_imgAndTimeStamps.size()>100){
+  if(m_imgAndTimeStamps.size()>20){
     m_imgAndTimeStamps.clear();
   }
   m_imgAndTimeStamps.push_back(imgAndTimeStamp);
@@ -183,17 +183,21 @@ void DetectCone::checkLidarState(){
     if(cluon::time::toMicroseconds(m_coneTimeStamp) == 0){
       std::cout << "No lidar data received" << std::endl;
       m_lidarIsWorking = false;
-      // if(m_currentFrame < m_timeStamps.size()){
-      //   m_img = cv::imread("/opt/images/"+std::to_string(m_currentFrame++)+".png");
-      //   forwardDetectionORB(m_img);
-      //   // cv::namedWindow("forwardDetectionORB", cv::WINDOW_NORMAL);
-      //   // cv::imshow("forwardDetectionORB", m_img);
-      //   // cv::waitKey(10);
-      //   std::cout << m_currentFrame << std::endl;
-      // }
+      if(m_currentFrame < m_timeStamps.size()){
+        m_img = cv::imread("/opt/images/"+std::to_string(m_currentFrame++)+".png");
+        if(!m_processing){
+          m_processing = true;
+          forwardDetectionORB(m_img);
+          m_processing = false;
+        }
+        // cv::namedWindow("forwardDetectionORB", cv::WINDOW_NORMAL);
+        // cv::imshow("forwardDetectionORB", m_img);
+        // cv::waitKey(10);
+        // std::cout << m_currentFrame << std::endl;
+      }
     }
     else{
-      m_currentFrame = 0;
+      m_count = 0;
       m_lidarIsWorking = true;
     }
   }
@@ -480,7 +484,7 @@ void DetectCone::xyz2xy(cv::Mat Q, cv::Point3f xyz, cv::Point2f& xy, int& radius
   float d = (f - Z * b ) / ( Z * a);
   xy.x = X * ( d * a + b ) + Cx;
   xy.y = Y * ( d * a + b ) + Cy;
-  radius = int(0.4 * ( d * a + b ));
+  radius = int(0.5 * ( d * a + b ));
 }
 
 int DetectCone::countFiles(const char* path){
@@ -632,7 +636,7 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
       }
 
       Eigen::MatrixXd cone = Eigen::MatrixXd::Zero(4,1);
-      cone << point3D.x-m_xShift, point3D.z-m_zShift, -(point3D.y-m_yShift), maxIndex;
+      cone << point3D.x-m_xShift, point3D.z-m_zShift, point3D.y-m_yShift, maxIndex;
       // cameraCones.col(coneCount++) = cone;
       if (labelName == "background"){
         std::cout << "No cone detected" << std::endl;
@@ -767,7 +771,7 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
   // cv::imshow("forwardDetectionORB", img);
   // cv::waitKey(10);
 
-  cv::imwrite("/opt/results/"+std::to_string(m_count++)+".png", img);
+  cv::imwrite("/opt/results/"+std::to_string(m_currentFrame)+".png", img);
 
   // if(coneCount){
   //   SendMatchedContainer(cameraCones);
@@ -850,13 +854,13 @@ void DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& lidarCones, int
         std::string labelName = labels[maxIndex];
         std::cout << "Find one " << labels[maxIndex-1] << " cone"<< std::endl;
         if (labelName == "blue")
-          cv::circle(img, position, radius, cv::Scalar (255,0,0));
+          cv::circle(img, position, radius, cv::Scalar (255,0,0), 2);
         else if (labelName == "yellow")
-          cv::circle(img, position, radius, cv::Scalar (0,255,255));
+          cv::circle(img, position, radius, cv::Scalar (0,255,255), 2);
         else if (labelName == "orange")
-          cv::circle(img, position, radius, cv::Scalar (0,165,255));
+          cv::circle(img, position, radius, cv::Scalar (0,165,255), 2);
         else if (labelName == "big orange")
-          cv::circle(img, position, radius, cv::Scalar (0,0,255));
+          cv::circle(img, position, radius, cv::Scalar (0,0,255), 2);
       }
     }
   }
@@ -865,7 +869,7 @@ void DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& lidarCones, int
   //cv::imshow("backwardDetection", img);
   //cv::waitKey(10);
 
-  cv::imwrite("/opt/results/"+std::to_string(m_count++)+"_"+std::to_string(minValue)+".png", img);
+  cv::imwrite("/opt/results/"+std::to_string(m_currentFrame)+"_"+std::to_string(minValue)+".png", img);
 }
 
 Eigen::MatrixXd DetectCone::Spherical2Cartesian(double azimuth, double zenimuth, double distance)
@@ -948,7 +952,7 @@ void DetectCone::SendCollectedCones(Eigen::MatrixXd lidarCones)
     int minIndex;
     int64_t minValue;
     if(m_offline){
-      minIndex = m_currentFrame;
+      minIndex = 0;
       minValue = abs(m_timeStamps[minIndex] - cluon::time::toMicroseconds(m_coneTimeStamp));
       for (size_t i = minIndex+1; i < m_timeStamps.size(); i++){
         int64_t timeDiff = abs(m_timeStamps[i]- cluon::time::toMicroseconds(m_coneTimeStamp));
@@ -976,9 +980,8 @@ void DetectCone::SendCollectedCones(Eigen::MatrixXd lidarCones)
       m_img = m_imgAndTimeStamps[minIndex].second;
     }
     minValue /= 1000;
-    std::cout << "minIndex: " << minIndex << ", minTimeStampDiff: " << minValue << "ms" << std::endl;
-
-    if(minValue < 20){
+    if(minValue < 30){
+      std::cout << "minIndex: " << minIndex << ", minTimeStampDiff: " << minValue << "ms" << std::endl;
       std::cout << "TimeStamp matched!" << std::endl;  
       backwardDetection(m_img, lidarCones, minValue);
       // cv::Mat rectified = m_img.colRange(0,672);
