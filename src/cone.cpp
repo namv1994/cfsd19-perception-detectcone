@@ -82,6 +82,36 @@ bool Cone::isThisMe(double x, double y){
 }
 
 bool Cone::checkColor(){
+  float totalDetected = (float)(m_bigOrangeCount+m_blueCount+m_smallOrangeCount+m_yellowCount);
+  int currentColorCount = 0;
+  if(totalDetected < 2.0f){
+    return false;
+  }
+  if((float)m_blueCount/totalDetected>0.70f){
+    m_label=1;
+    currentColorCount = m_blueCount;
+  }
+  else if((float)m_yellowCount/totalDetected>0.70f){
+    m_label=2;
+    currentColorCount = m_yellowCount;
+  }
+  else if((float)m_smallOrangeCount/totalDetected>0.70f){
+    m_label=3;
+    currentColorCount = m_smallOrangeCount;
+  }
+  else if((float)m_bigOrangeCount/totalDetected>0.70f){
+    m_label=4;
+    currentColorCount = m_bigOrangeCount;
+  }
+  if(currentColorCount>1){
+    return true;
+  }
+  else{
+    return false;
+  }
+}
+
+  /*
   int nBlue = 0;
   int nYellow = 0;
   int nSmallOrange = 0;
