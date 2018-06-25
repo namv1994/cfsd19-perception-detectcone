@@ -880,8 +880,9 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
   //cv::namedWindow("backwardDetection", cv::WINDOW_NORMAL);
   //cv::imshow("backwardDetection", img);
   //cv::waitKey(10);
-
-  cv::imwrite("/opt/results/"+std::to_string(m_currentFrame)+"_"+std::to_string(minValue)+".png", img);
+  if(true){
+    cv::imwrite("/opt/results/"+std::to_string(m_currentFrame)+"_"+std::to_string(minValue)+".png", img);
+  }
   return localCones;
 }
 
@@ -957,7 +958,8 @@ void DetectCone::SendCollectedCones(Eigen::MatrixXd lidarCones)
   }
   if(m_lidarIsWorking){
     std::cout << "Receive lidar data" << std::endl;
-
+    cluon::data::TimeStamp time1 = cluon::time::now();
+    std::cout << "Delta in microseconds (acquisition)" << cluon::time::deltaInMicroseconds(time1,m_start) << std::endl;
     // std::cout << "Start detection" << std::endl;
     //Retrieve Image (Can be extended with timestamp matching)
     std::unique_lock<std::mutex> lock(m_imgMutex);
@@ -975,6 +977,7 @@ void DetectCone::SendCollectedCones(Eigen::MatrixXd lidarCones)
         }
       }
       // std::cout << m_timeStamps[minIndex] << " " << cluon::time::toMicroseconds(m_coneTimeStamp) << " " << minValue << std::endl;
+      time1 = cluon::time::now();
       m_img = cv::imread("/opt/images/"+std::to_string(minIndex)+".png");
       m_currentFrame = minIndex;
     }
@@ -992,11 +995,15 @@ void DetectCone::SendCollectedCones(Eigen::MatrixXd lidarCones)
       }
       m_img = m_imgAndTimeStamps[minIndex].second;
     }
+    std::cout << "Delta in microseconds (image acquisition)" << cluon::time::deltaInMicroseconds(cluon::time::now(),time1) << std::endl;
+    time1 = cluon::time::now();
     minValue /= 1000;
     if(minValue < 30){
       std::cout << "minIndex: " << minIndex << ", minTimeStampDiff: " << minValue << "ms" << std::endl;
       std::cout << "TimeStamp matched!" << std::endl;  
       std::vector<Cone> localCones = backwardDetection(m_img, lidarCones, minValue);
+      std::cout << "Delta in microseconds (detection)" << cluon::time::deltaInMicroseconds(cluon::time::now(),time1) << std::endl;
+      time1 = cluon::time::now();
       // cv::Mat rectified = m_img.colRange(0,672);
       // cv::resize(rectified, rectified, cv::Size(672, 376));
       // // rectified.convertTo(rectified, CV_8UC3);
@@ -1004,6 +1011,8 @@ void DetectCone::SendCollectedCones(Eigen::MatrixXd lidarCones)
       // // result[1].rowRange(320,680) = rectified;
       // cv::hconcat(result[0], m_img, coResult);
       // cv::imwrite("results/"+std::to_string(m_count++)+".png", coResult);
+      std::cout << "Delta in microseconds (matching)" << cluon::time::deltaInMicroseconds(cluon::time::now(),time1) << std::endl;
+      time1 = cluon::time::now();
       std::vector<Cone> conesToSend = MatchCones(localCones);
       SendMatchedContainer(conesToSend);
     }
@@ -1138,5 +1147,5 @@ void DetectCone::SendMatchedContainer(std::vector<Cone> cones)
     m_od4.send(coneType,sampleTime,m_senderStamp);
   }
   cluon::data::TimeStamp endTime = cluon::time::now();
-  std::cout << "Delta in microseconds" << cluon::time::deltaInMicroseconds(endTime,m_start) << std::endl;
+  std::cout << "Delta in microseconds (final)" << cluon::time::deltaInMicroseconds(endTime,m_start) << std::endl;
 }

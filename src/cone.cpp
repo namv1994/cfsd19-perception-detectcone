@@ -78,7 +78,7 @@ bool Cone::isThisMe(double x, double y){
   //double diffX = std::abs(m_x - x);
   //double diffY = std::abs(m_y - y);
   double distance = std::sqrt( (m_x - x)*(m_x - x) + (m_y - y)*(m_y - y) );
-  if(distance < 1){return true;}else{return false;}
+  if(distance < 1.5){return true;}else{return false;}
 }
 
 bool Cone::checkColor(){
@@ -86,6 +86,9 @@ bool Cone::checkColor(){
   int nYellow = 0;
   int nSmallOrange = 0;
   int nBigOrange = 0;
+  if(!(m_colorList.size()>1)){
+    return false;
+  }
   for(uint32_t i = 1; i<5; i++){
     for(uint32_t j = 0;j<m_colorList.size(); j++){
       if(m_colorList[j]==i){
@@ -104,19 +107,19 @@ bool Cone::checkColor(){
       }
     }
   }
-  if(nBlue>static_cast<int>(0.65*m_colorList.size())){
+  if(nBlue>=std::ceil(0.6*m_colorList.size())){
     m_label = 1;
     return true;
   }
-  else if(nYellow>static_cast<int>(0.65*m_colorList.size())){
+  else if(nYellow>=std::ceil(0.6*m_colorList.size())){
     m_label = 2;
     return true;
   }
-  else if(nSmallOrange>static_cast<int>(0.65*m_colorList.size())){
+  else if(nSmallOrange>=std::ceil(0.6*m_colorList.size())){
     m_label = 3;
     return true;
   }
-  else if(nBigOrange>static_cast<int>(0.65*m_colorList.size())){
+  else if(nBigOrange>=std::ceil(0.6*m_colorList.size())){
     m_label = 4;
     return true;
   }
@@ -132,11 +135,15 @@ void Cone::addColor(size_t label){
 }
 
 bool Cone::shouldBeInFrame(){
-  if(m_hits >= 3 && m_y > 1 && m_missHit < 2 && m_isValid && checkColor()){return true;}else{return false;}
+  if(m_hits >= 2 && m_y > 0.2 && m_missHit < 2 && m_isValid && checkColor()){
+    return true;
+  }else{
+    return false;
+  }
 }
 
 bool Cone::shouldBeRemoved(){
-  if(m_missHit >= 2 || m_y < 1 ){return true;}else{return false;}
+  if(m_missHit >= 2 || m_y < 0.2 ){return true;}else{return false;}
 }
 
 void Cone::setValidState(bool state){
