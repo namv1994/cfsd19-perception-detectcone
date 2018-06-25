@@ -603,15 +603,15 @@ void DetectCone::forwardDetectionORB(cv::Mat img,std::vector<Cone>& cones){
     for(size_t i = 0; i < inputs.size(); i++){
       size_t maxIndex = 0;
       double maxProb = prob[i][0][0];
-      std::cout << prob[i][0][0] << " ";
+      //std::cout << prob[i][0][0] << " ";
       for(size_t j = 1; j < 5; j++){
-        std::cout << prob[i][0][j] << " ";
+        //std::cout << prob[i][0][j] << " ";
         if(prob[i][0][j] > maxProb){
           maxIndex = j;
           maxProb = prob[i][0][j];
         }
       }
-      std::cout << labels[maxIndex] << std::endl;
+      //std::cout << labels[maxIndex] << std::endl;
       int x = candidates[i].x;
       int y = candidates[i].y;
       probMap[maxIndex].at<double>(y,x) = maxProb;
@@ -623,7 +623,7 @@ void DetectCone::forwardDetectionORB(cv::Mat img,std::vector<Cone>& cones){
     for(size_t i = 0; i < cones.size(); i++){
       int x = cones[i].m_pt.x;
       int y = cones[i].m_pt.y;
-      double maxProb = cones[i].m_prob;
+      //double maxProb = cones[i].m_prob;
       int maxIndex = cones[i].m_label;
       cv::Point position(x, y);
       cv::Point3f point3D = XYZ.at<cv::Point3f>(position);
@@ -673,7 +673,7 @@ void DetectCone::forwardDetectionORB(cv::Mat img,std::vector<Cone>& cones){
             cv::circle(result, cv::Point (xt,yt), 10, cv::Scalar (0,0,255), -1);
         }
 
-        std::cout << position << " " << labelName << " " << point3D << " " << maxProb << std::endl;
+        //std::cout << position << " " << labelName << " " << point3D << " " << maxProb << std::endl;
       }
     }
   }
@@ -800,7 +800,7 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
     cv::Point2f point2D;
     Cone cone = Cone(lidarCones(0,i),lidarCones(1,i),lidarCones(2,i));
     cv::Point3f lidarCone(float(m_xShift+lidarCones(0,i)), float(m_yShift+lidarCones(2,i)), float(m_zShift+lidarCones(1,i)));
-    std::cout << lidarCone << std::endl;
+    //std::cout << lidarCone << std::endl;
     int radius;
     xyz2xy(Q, lidarCone, point2D, radius);
 
@@ -861,8 +861,12 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
       if (maxIndex == 0 || maxProb < m_threshold){
         std::cout << "No cone detected" << std::endl;
         cv::circle(img, position, radius, cv::Scalar (0,0,0));
+        localCones[verifiedIndex[i]].m_label = 0;
+        localCones[verifiedIndex[i]].m_prob = maxProb;
       } 
       else{
+        localCones[verifiedIndex[i]].m_label = maxIndex;
+        localCones[verifiedIndex[i]].m_prob = maxProb;
         std::string labelName = labels[maxIndex];
         std::cout << "Find one " << labels[maxIndex-1] << " cone"<< std::endl;
         if (labelName == "blue")
@@ -879,7 +883,7 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
 
   //cv::namedWindow("backwardDetection", cv::WINDOW_NORMAL);
   //cv::imshow("backwardDetection", img);
-  //cv::waitKey(10);
+  //cv::waitKey(1);
   if(true){
     cv::imwrite("/opt/results/"+std::to_string(m_currentFrame)+"_"+std::to_string(minValue)+".png", img);
   }
@@ -1051,7 +1055,7 @@ std::vector<Cone> DetectCone::MatchCones(std::vector<Cone> cones){
       int k = 0;
       int frameSize = m_coneFrame.size();
       bool foundMatch = false;
-      if(m_coneFrame[i].second.isValid()){
+      if(m_coneFrame[k].second.isValid()){
         if(objectPair.second.isThisMe(m_coneFrame[k].second.getX(),m_coneFrame[k].second.getY())){
           posShiftX += m_coneFrame[k].second.getX() - objectPair.second.getX();
           posShiftY += m_coneFrame[k].second.getY() - objectPair.second.getY();
@@ -1065,8 +1069,8 @@ std::vector<Cone> DetectCone::MatchCones(std::vector<Cone> cones){
           foundMatch = true;
         }
       }
-      while( k < frameSize && !foundMatch){
-        if(m_coneFrame[i].second.isValid()){
+      while(k < frameSize && !foundMatch){
+        if(!m_coneFrame[k].second.isValid()){
           k++;
           continue;
         }
