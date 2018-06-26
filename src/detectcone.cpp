@@ -914,6 +914,29 @@ void DetectCone::Cartesian2Spherical(double x, double y, double z, opendlv::logi
   pointInSpherical.zenithAngle(float(zenithAngle));
 }
 
+void DetectCone::LidarToCoG(opendlv::logic::sensation::Point& conePoint){
+  double angle = conePoint.azimuthAngle();
+  double distance = conePoint.distance();
+  const double lidarDistToCoG = 1.5;
+  double sign = angle/std::fabs(angle);
+  angle = PI - std::fabs(angle*DEG2RAD); 
+  double distanceNew = std::sqrt(lidarDistToCoG*lidarDistToCoG + distance*distance - 2*lidarDistToCoG*distance*std::cos(angle));
+  double angleNew = std::asin((std::sin(angle)*distance)/distanceNew )*RAD2DEG; 
+  conePoint.azimuthAngle((float)(angleNew*sign));
+  conePoint.distance((float)distanceNew);
+}
+
+void DetectCone::CameraToCoG(opendlv::logic::sensation::Point& conePoint){
+  double angle = conePoint.azimuthAngle()*DEG2RAD;
+  double distance = conePoint.distance();
+  const double cameraDistToCoG = 0.37;
+  double sign = angle/std::fabs(angle);
+  double distanceNew = std::sqrt(cameraDistToCoG*cameraDistToCoG + distance*distance - 2*cameraDistToCoG*distance*std::cos(angle));
+  double angleNew = std::asin((std::sin(angle)*distance)/distanceNew);
+  angleNew = PI-std::fabs(angleNew);
+  conePoint.azimuthAngle((float)(angleNew*sign));
+  conePoint.distance((float)distanceNew);
+}
 /*
 void DetectCone::initializeCollection(){
   //std::this_thread::sleep_for(std::chrono::duration 1s); //std::chrono::milliseconds(m_timeDiffMilliseconds)
@@ -1133,6 +1156,11 @@ void DetectCone::SendMatchedContainer(std::vector<Cone> cones)
 
     opendlv::logic::sensation::Point conePoint;
     Cartesian2Spherical(cones[n].getX(), cones[n].getY(), cones[n].getZ(), conePoint);
+    if(m_lidarIsWorking){
+      LidarToCoG(conePoint);
+    }else{
+      CameraToCoG(conePoint);
+    }
     uint32_t index = cones.size()-1-n;
     opendlv::logic::perception::ObjectDirection coneDirection;
     coneDirection.objectId(index);
