@@ -34,9 +34,10 @@ int32_t main(int32_t argc, char **argv) {
         bool offline{static_cast<bool>(std::stoi(commandlineArguments["offline"]))};
         
         uint32_t attentionSenderStamp = static_cast<uint32_t>(std::stoi(commandlineArguments["attentionSenderStamp"])); 
+        uint32_t senderStamp = static_cast<uint32_t>(std::stoi(commandlineArguments["senderStamp"]));
+        uint32_t stateMachineStamp = static_cast<uint32_t>(std::stoi(commandlineArguments["stateMachineId"]));
 
         const bool VERBOSE{commandlineArguments.count("verbose") != 0};
-        (void)VERBOSE;
         
         cluon::OD4Session od4{static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
         DetectCone detectcone(commandlineArguments, od4);
@@ -45,17 +46,25 @@ int32_t main(int32_t argc, char **argv) {
         Collector collector(detectcone,timeOutMs,separationTimeMs,2);
 
         cluon::data::Envelope data;
-        auto envelopeRecieved{[&logic = detectcone, senderStamp = attentionSenderStamp,&collector](cluon::data::Envelope &&envelope)
+        auto envelopeRecieved{[&logic = detectcone, senderStamp = attentionSenderStamp, &collector](cluon::data::Envelope &&envelope)
             {
                 if(envelope.senderStamp() == senderStamp){
-                    //logic.nextContainer(envelope);
                     collector.CollectCones(envelope);
                 }
             } 
         };
 
+        auto stateMachineStatusEnvelope{[&logic = detectcone, senderStamp = stateMachineStamp](cluon::data::Envelope &&envelope)
+        {
+            if(envelope.senderStamp() == senderStamp){
+                    logic.setStateMachineStatus(envelope);
+                }
+            }
+        };
+
         od4.dataTrigger(opendlv::logic::perception::ObjectDirection::ID(),envelopeRecieved);
         od4.dataTrigger(opendlv::logic::perception::ObjectDistance::ID(),envelopeRecieved);
+        od4.dataTrigger(opendlv::proxy::SwitchStateReading::ID(),stateMachineStatusEnvelope);
 
         if(offline){
             detectcone.getTimeStamp("/opt/timestamp/timestamps.txt");
@@ -89,6 +98,7 @@ int32_t main(int32_t argc, char **argv) {
                     image->imageData = sharedMemory->data();
                     image->imageDataOrigin = image->imageData;
                     sharedMemory->unlock();
+                    bool readyState = false;
                     while (od4.isRunning()) {
                         // The shared memory uses a pthread broadcast to notify us; just sleep to get awaken up.
                         sharedMemory->wait();
@@ -104,6 +114,17 @@ int32_t main(int32_t argc, char **argv) {
                         std::pair<cluon::data::TimeStamp, cv::Mat> imgAndTimeStamp(imgTimestamp, img);
                         detectcone.getImgAndTimeStamp(imgAndTimeStamp);
                         detectcone.checkLidarState();
+
+                        if(readyState){
+                            if(VERBOSE)
+                                std::cout << "detectcone module is ready!" << std::endl;
+                            opendlv::system::SignalStatusMessage ssm;
+                            ssm.code(1);
+                            cluon::data::TimeStamp sampleTime = cluon::time::now();
+                            od4.send(ssm, sampleTime, senderStamp);
+                        }else{
+                            readyState = detectcone.getModuleState();
+                        }
                         
                         sharedMemory->unlock();
                         cv::waitKey(1);
