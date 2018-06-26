@@ -57,6 +57,11 @@ class Cone{
     int m_missHit = 0;
     bool m_isValid = true;
     std::vector<uint32_t> m_colorList = {};
+    int m_noDetectionCount = 0;
+    int m_blueCount = 0;
+    int m_yellowCount = 0;
+    int m_smallOrangeCount = 0;
+    int m_bigOrangeCount = 0;
 };
 
 #endif

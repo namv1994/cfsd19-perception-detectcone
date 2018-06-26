@@ -116,11 +116,11 @@ bool Cone::checkColor(){
   int nYellow = 0;
   int nSmallOrange = 0;
   int nBigOrange = 0;
-  if(!(m_colorList.size()>1)){
+  if(!(m_colorList.size()>2)){
     return false;
   }
   for(uint32_t i = 1; i<5; i++){
-    for(uint32_t j = 0;j<m_colorList.size(); j++){
+    for(uint32_t j = 0; j<m_colorList.size(); j++){
       if(m_colorList[j]==i){
         if(i == 1){
           nBlue++;
@@ -156,11 +156,23 @@ bool Cone::checkColor(){
   else{
     return false;
   }
-}
+  */
 
 void Cone::addColor(size_t label){
-  if(label < 10){
-    m_colorList.push_back(label);
+  if(label > 10 || label==0){
+    m_noDetectionCount++;
+  }
+  else if(label == 1){
+    m_blueCount++;
+  }
+  else if(label==2){
+    m_yellowCount++;
+  }
+  else if(label == 3){
+    m_smallOrangeCount++;
+  }
+  else if(label == 4){
+    m_bigOrangeCount++;
   }
 }
 
