@@ -313,9 +313,10 @@ void DetectCone::convertImage(cv::Mat img, int w, int h, tiny_dnn::vec_t& data){
 }
 
 void DetectCone::adjustLighting(cv::Mat img, cv::Mat& outImg){
-  cv::Scalar meanScalar = cv::mean(img);
+  outImg = img;
+  /*cv::Scalar meanScalar = cv::mean(img);
   double mean = (meanScalar.val[0]+meanScalar.val[1]+meanScalar.val[2])/3;
-  outImg = img*128/mean;
+  outImg = img*128/mean;*/
 }
 
 void DetectCone::CNN(const std::string& dictionary, tiny_dnn::network<tiny_dnn::sequential>& model) {
@@ -333,8 +334,8 @@ void DetectCone::CNN(const std::string& dictionary, tiny_dnn::network<tiny_dnn::
      << conv(31, 31, 3, 16, 16, tiny_dnn::padding::valid, true, 2, 2, backend_type) << tanh() 
      << conv(15, 15, 3, 16, 32, tiny_dnn::padding::valid, true, 2, 2, backend_type) << tanh() 
      << conv(7, 7, 3, 32, 32, tiny_dnn::padding::valid, true, 2, 2, backend_type) << tanh()                    
-     << fc(3 * 3 * 32, 256, true, backend_type) << relu()  
-     << fc(256, 5, true, backend_type) << softmax(5); 
+     << fc(3 * 3 * 32, 128, true, backend_type) << relu()  
+     << fc(128, 5, true, backend_type) << softmax(5); 
 
   // load nets
   std::ifstream ifs(dictionary.c_str());
@@ -883,8 +884,6 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
         }
       }
 
-      localCones[verifiedIndex[i]].m_label = maxIndex;
-      localCones[verifiedIndex[i]].m_prob = maxProb;
       cv::Point position(porperty[i][0],porperty[i][1]);
       int radius = porperty[i][2];
 
@@ -894,10 +893,14 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
 
       std::string labels[] = {"background", "blue", "yellow", "orange", "big orange"};
       if (maxIndex == 0 || maxProb < m_threshold){
+        localCones[verifiedIndex[i]].m_label = 0;
+        localCones[verifiedIndex[i]].m_prob = maxProb;
         std::cout << "No cone detected" << std::endl;
         cv::circle(img, position, radius, cv::Scalar (0,0,0));
       } 
       else{
+        localCones[verifiedIndex[i]].m_label = maxIndex;
+        localCones[verifiedIndex[i]].m_prob = maxProb;
         std::string labelName = labels[maxIndex];
         std::cout << "Find one " << labels[maxIndex-1] << " cone"<< std::endl;
         if (labelName == "blue")
