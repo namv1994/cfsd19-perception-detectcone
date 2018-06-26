@@ -683,7 +683,9 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
       //cone << point3D.x-m_xShift, point3D.z-m_zShift, point3D.y-m_yShift, maxIndex;
       // cameraCones.col(coneCount++) = cone;
       if (labelName == "background"){
-        std::cout << "No cone detected" << std::endl;
+        if(m_verbose){
+          std::cout << "No cone detected" << std::endl;
+        }
         cv::circle(img, position, radius, cv::Scalar (0,0,0));
       } 
       else{
@@ -708,8 +710,9 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
         //   else if (labelName == "big orange")
         //     cv::circle(result, cv::Point (xt,yt), 10, cv::Scalar (0,0,255), -1);
         // }
-
-        std::cout << position << " " << labelName << " " << point3D << " " << maxProb << std::endl;
+        if(m_verbose){
+          std::cout << position << " " << labelName << " " << point3D << " " << maxProb << std::endl; 
+        }
       }
     }
   }
@@ -895,14 +898,18 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
       if (maxIndex == 0 || maxProb < m_threshold){
         localCones[verifiedIndex[i]].m_label = 0;
         localCones[verifiedIndex[i]].m_prob = maxProb;
-        std::cout << "No cone detected" << std::endl;
+        if(m_verbose){
+          std::cout << "No cone detected" << std::endl;
+        }
         cv::circle(img, position, radius, cv::Scalar (0,0,0));
       } 
       else{
         localCones[verifiedIndex[i]].m_label = maxIndex;
         localCones[verifiedIndex[i]].m_prob = maxProb;
         std::string labelName = labels[maxIndex];
-        std::cout << "Find one " << labels[maxIndex-1] << " cone"<< std::endl;
+        if(m_verbose){
+          std::cout << "Find one " << labels[maxIndex-1] << " cone"<< std::endl;
+        }
         if (labelName == "blue")
           cv::circle(img, position, radius, cv::Scalar (255,0,0), 2);
         else if (labelName == "yellow")
