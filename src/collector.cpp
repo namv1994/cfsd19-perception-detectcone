@@ -125,9 +125,9 @@ void Collector::CollectCones(cluon::data::Envelope data){
         std::thread coneCollector (&Collector::InitializeCollection,this); //just sleep instead maybe since this is unclear how it works
         coneCollector.detach();
     }
-    else{
-        std::cout << "Leaking frames wtf!!!" << std::endl;
-    }
+    // else{
+    //     std::cout << "Leaking frames wtf!!!" << std::endl;
+    // }
 
 }
 
@@ -174,6 +174,6 @@ void Collector::GetCompleteFrame(){
 }
 
 void Collector::SendFrame(){
-    std::cout << "sending " << m_currentFrame.size() << " cones" << std::endl;
+    // std::cout << "sending " << m_currentFrame.size() << " cones" << std::endl;
     m_module.receiveCombinedMessage(m_currentFrameTime,m_currentFrame);
 }
