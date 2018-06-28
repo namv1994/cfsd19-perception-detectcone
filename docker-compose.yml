@@ -56,14 +56,13 @@ services:
         - DISPLAY=$DISPLAY
         volumes:
         - /tmp/.X11-unix:/tmp/.X11-unix
-        - ~/recordings:/opt/recordings
+        - /media/weiming/047AE1C87AE1B718/testing/astaday2/nr3/recordings:/opt/recordings
         ipc: host
         user: odv
         depends_on:
             - odsupercomponent
         command: "/opt/od4/bin/odcockpit --cid=${CID}" 
 
-    #test
     cfsd18-perception-detectcone:
         image: "detectcone:test"
         network_mode: "host"
@@ -73,7 +72,7 @@ services:
           - DISPLAY=$DISPLAY
         volumes:
          - /tmp/.X11-unix:/tmp/.X11-unix
-         - ../tmp:/opt
+         - /media/weiming/047AE1C87AE1B718/testing/astaday2/nr3:/opt
          - "/dev/shm:/dev/shm"
         # depends_on:
         #   - proxy-camera
@@ -81,36 +80,36 @@ services:
           memlock:
             soft: 5600000 #1516032
             hard: 5600000
-        command: "cfsd18-perception-detectcone --cid=${CID} --name=cam0 --width=1344 --height=376 --bpp=24 --threshold=0.7 --timeDiffMilliseconds=20 --separationTimeMs=10 --checkLidarMilliseconds=1000 --senderStamp=118 --attentionSenderStamp=116 --offline=0 --annotate=0 --stateMachineId=1401 --readyStateMachine=0 --verbose"
+        command: "cfsd18-perception-detectcone --cid=${CID} --name=cam0 --width=1344 --height=376 --bpp=24 --threshold=0.8 --timeDiffMilliseconds=20 --separationTimeMs=10 --checkLidarMilliseconds=1000 --senderStamp=118 --attentionSenderStamp=116 --offline=1 --annotate=0 --stateMachineId=1401 --readyStateMachine=1 --verbose"
 
-    proxy-camera:
-        image: producer:latest #cproxy:cproxyv1
-        network_mode: host
-        group_add:
-            - video
-        ipc: host
-        devices:
-            - "/dev/video0:/dev/video0"
-        environment:
-            - DISPLAY=$DISPLAY
-        volumes:
-            - /tmp/.X11-unix:/tmp/.X11-unix
-            - "/dev/shm:/dev/shm"
-        ulimits:
-          memlock:
-            soft: 5600000 #1516032
-            hard: 5600000
-        command: "opendlv-device-camera-opencv --name=cam0 --bgr2rgb --cid=118 --camera=/dev/video0 --width=640 --height=360 --bpp=24 --freq=60 --verbose"
+    # proxy-camera:
+    #     image: producer:latest #cproxy:cproxyv1
+    #     network_mode: host
+    #     group_add:
+    #         - video
+    #     ipc: host
+    #     devices:
+    #         - "/dev/video0:/dev/video0"
+    #     environment:
+    #         - DISPLAY=$DISPLAY
+    #     volumes:
+    #         - /tmp/.X11-unix:/tmp/.X11-unix
+    #         - "/dev/shm:/dev/shm"
+    #     ulimits:
+    #       memlock:
+    #         soft: 5600000 #1516032
+    #         hard: 5600000
+    #     command: "opendlv-device-camera-opencv --name=cam0 --bgr2rgb --cid=118 --camera=/dev/video0 --width=640 --height=360 --bpp=24 --freq=60 --verbose"
 
-    cfsd18-perception-imagerecorder:
-        image: "imgrec:imgrecv0"
-        network_mode: "host"
-        ipc: host
-        volumes:
-        - ../tmp:/opt
-        depends_on:
-          - proxy-camera
-        command: "cfsd18-perception-imagerecorder --cid=${CID} --name=cam0 --width=640 --height=360 --bpp=24 --verbose --id=1"
+    # cfsd18-perception-imagerecorder:
+    #     image: "imgrec:imgrecv0"
+    #     network_mode: "host"
+    #     ipc: host
+    #     volumes:
+    #     - ../tmp:/opt
+    #     depends_on:
+    #       - proxy-camera
+    #     command: "cfsd18-perception-imagerecorder --cid=${CID} --name=cam0 --width=640 --height=360 --bpp=24 --verbose --id=1"
 
 
    

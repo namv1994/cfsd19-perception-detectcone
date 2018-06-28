@@ -313,10 +313,10 @@ void DetectCone::convertImage(cv::Mat img, int w, int h, tiny_dnn::vec_t& data){
 }
 
 void DetectCone::adjustLighting(cv::Mat img, cv::Mat& outImg){
-  outImg = img;
-  /*cv::Scalar meanScalar = cv::mean(img);
+  // outImg = img;
+  cv::Scalar meanScalar = cv::mean(img);
   double mean = (meanScalar.val[0]+meanScalar.val[1]+meanScalar.val[2])/3;
-  outImg = img*128/mean;*/
+  outImg = img*128/mean;
 }
 
 void DetectCone::CNN(const std::string& dictionary, tiny_dnn::network<tiny_dnn::sequential>& model) {
@@ -334,8 +334,8 @@ void DetectCone::CNN(const std::string& dictionary, tiny_dnn::network<tiny_dnn::
      << conv(31, 31, 3, 16, 16, tiny_dnn::padding::valid, true, 2, 2, backend_type) << tanh() 
      << conv(15, 15, 3, 16, 32, tiny_dnn::padding::valid, true, 2, 2, backend_type) << tanh() 
      << conv(7, 7, 3, 32, 32, tiny_dnn::padding::valid, true, 2, 2, backend_type) << tanh()                    
-     << fc(3 * 3 * 32, 128, true, backend_type) << relu()  
-     << fc(128, 5, true, backend_type) << softmax(5); 
+     << fc(3 * 3 * 32, 256, true, backend_type) << relu()  
+     << fc(256, 5, true, backend_type) << softmax(5); 
 
   // load nets
   std::ifstream ifs(dictionary.c_str());
@@ -1072,7 +1072,7 @@ void DetectCone::SendCollectedCones(Eigen::MatrixXd lidarCones)
       std::cout << "Delta in microseconds (image acquisition)" << cluon::time::deltaInMicroseconds(cluon::time::now(),time1) << std::endl;
     time1 = cluon::time::now();
     minValue /= 1000;
-    if(minValue < 30){
+    if(minValue < 100){
       std::vector<Cone> localCones = backwardDetection(m_img, lidarCones, minValue);
       if(m_verbose){
         std::cout << "minIndex: " << minIndex << ", minTimeStampDiff: " << minValue << "ms" << std::endl;
