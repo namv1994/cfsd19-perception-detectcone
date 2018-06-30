@@ -107,6 +107,8 @@ int32_t main(int32_t argc, char **argv) {
                         image->imageData = sharedMemory->data();
                         image->imageDataOrigin = image->imageData;
                         cv::Mat img = cv::cvarrToMat(image); 
+                        sharedMemory->unlock();
+                        cv::waitKey(1);
 
                         cluon::data::TimeStamp imgTimestamp = cluon::time::now();
                         // int64_t ts = cluon::time::toMicroseconds(imgTimestamp);
@@ -124,10 +126,7 @@ int32_t main(int32_t argc, char **argv) {
                             od4.send(ssm, sampleTime, senderStamp);
                         }else{
                             readyState = detectcone.getModuleState();
-                        }
-                        
-                        sharedMemory->unlock();
-                        cv::waitKey(1);
+                        }                       
                     }
                     cvReleaseImageHeader(&image);
                 }

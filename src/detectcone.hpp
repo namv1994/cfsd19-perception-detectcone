@@ -68,14 +68,14 @@ class DetectCone {
   void blockMatching(cv::Mat&, cv::Mat, cv::Mat);
   void reconstruction(cv::Mat, cv::Mat&, cv::Mat&, cv::Mat&, cv::Mat&);
   void convertImage(cv::Mat, int, int, tiny_dnn::vec_t&);
-  void adjustLighting(cv::Mat img, cv::Mat& outImg);
+  double adjustLighting(cv::Mat img);
   void CNN(const std::string&, tiny_dnn::network<tiny_dnn::sequential>&);
   void imRegionalMax(std::vector<Cone>&, size_t, cv::Mat, int, double, int);
   float median(std::vector<float>);
-  float mean(std::vector<float>);
+  cv::Point3f mean(std::vector<cv::Point3f>);
   void gather_points(cv::Mat, std::vector<float>, std::vector<int>&, std::vector<float>&);
   void filterKeypoints(std::vector<cv::Point3f>&);
-  void xyz2xy(cv::Mat, cv::Point3f, cv::Point2f&, int&);
+  int xyz2xy(cv::Mat Q, cv::Point3f xyz, cv::Point2f& xy, float radius);
   int countFiles(const char*);
   void annotate(cv::Mat, int, cv::Point, int);
   void forwardDetectionORB(cv::Mat img);
@@ -119,7 +119,7 @@ class DetectCone {
   bool m_annotate;
   bool m_verbose;
   bool m_readyStateMachine;
-  tiny_dnn::network<tiny_dnn::sequential> m_forwardModel, m_backwardModel;
+  tiny_dnn::network<tiny_dnn::sequential> m_model;
   bool m_lidarIsWorking;
   int64_t m_checkLidarMilliseconds;
   uint32_t m_senderStamp = 118;
