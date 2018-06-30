@@ -45,6 +45,7 @@ DetectCone::DetectCone(std::map<std::string, std::string> commandlineArguments, 
 , m_offline(false)
 , m_annotate(false)
 , m_verbose(false)
+, m_forwardDetection(false)
 , m_readyStateMachine(false)
 , m_model()
 , m_lidarIsWorking(false)
@@ -81,6 +82,7 @@ void DetectCone::setUp(std::map<std::string, std::string> commandlineArguments)
   m_annotate = static_cast<bool>(std::stoi(commandlineArguments["annotate"]));
   m_readyStateMachine = static_cast<bool>(std::stoi(commandlineArguments["readyStateMachine"]));
   m_verbose = static_cast<bool>(commandlineArguments.count("verbose") != 0);
+  m_forwardDetection = static_cast<bool>(std::stoi(commandlineArguments["forwardDetection"]));
 
   CNN("model", m_model);
 }
@@ -211,14 +213,14 @@ void DetectCone::checkLidarState(){
       if(m_verbose)
         std::cout << "currentFrame: " << m_currentFrame << std::endl;
       m_lidarIsWorking = false;
-      // if(m_currentFrame < m_timeStamps.size()){
-      //   m_img = cv::imread("/opt/images/"+std::to_string(m_currentFrame)+".png");
-      //   if(!m_processing){
-      //     m_processing = true;
-      //     forwardDetectionORB(m_img);
-      //     m_processing = false;
-      //   }
-      // }
+      if(m_forwardDetection && m_currentFrame < m_timeStamps.size()){
+        m_img = cv::imread("/opt/images/"+std::to_string(m_currentFrame)+".png");
+        if(!m_processing){
+          m_processing = true;
+          forwardDetectionORB(m_img);
+          m_processing = false;
+        }
+      }
     }
   }
   else{
@@ -517,7 +519,7 @@ int DetectCone::countFiles(const char* path){
   DIR *dir = opendir(path);
   if(!dir)
   {
-    printf("opendir() failed! Does it exist?\n");
+    // printf("opendir() failed! Does it exist?\n");
     return -1;
   }
 
@@ -724,7 +726,7 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
     cv::Point2f point2D;
     Cone cone = Cone(lidarCones(0,i),lidarCones(1,i),lidarCones(2,i));
     cv::Point3f lidarCone(float(m_xShift+lidarCones(0,i)), float(m_yShift+lidarCones(2,i)), float(m_zShift+lidarCones(1,i)));
-    int radius = xyz2xy(Q, lidarCone, point2D, 0.6f);
+    int radius = xyz2xy(Q, lidarCone, point2D, 0.5f);
 
     int x = int(point2D.x);
     int y = int(point2D.y);

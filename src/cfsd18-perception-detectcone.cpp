@@ -39,6 +39,12 @@ int32_t main(int32_t argc, char **argv) {
 
         // const bool VERBOSE{commandlineArguments.count("verbose") != 0};
         bool sentReadySignal = false;
+
+        std::string filepathTimestamp = "/opt/timestamp/timestamps.txt";
+        std::ofstream file;
+        file.open(filepathTimestamp.c_str());
+        size_t frameCounter = 0;
+        std::string imgPath = "/opt/images/";
         
         cluon::OD4Session od4{static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
         DetectCone detectcone(commandlineArguments, od4);
@@ -68,7 +74,7 @@ int32_t main(int32_t argc, char **argv) {
         od4.dataTrigger(opendlv::proxy::SwitchStateReading::ID(),stateMachineStatusEnvelope);
 
         if(offline){
-            detectcone.getTimeStamp("/opt/timestamp/timestamps.txt");
+            detectcone.getTimeStamp(filepathTimestamp);
             while (od4.isRunning()) {
                 detectcone.checkLidarState();
                 cv::waitKey(1);
@@ -108,12 +114,16 @@ int32_t main(int32_t argc, char **argv) {
                         image->imageData = sharedMemory->data();
                         image->imageDataOrigin = image->imageData;
                         cv::Mat img = cv::cvarrToMat(image); 
+
+                        cluon::data::TimeStamp imgTimestamp = cluon::time::now();
+                        int64_t ts = cluon::time::toMicroseconds(imgTimestamp);
+                        file << std::setprecision(19) << ts << std::endl;
+                        std::string saveString = imgPath + std::to_string(frameCounter++) + ".png";
+                        cv::imwrite( saveString, img);
+
                         sharedMemory->unlock();
                         cv::waitKey(1);
 
-                        cluon::data::TimeStamp imgTimestamp = cluon::time::now();
-                        // int64_t ts = cluon::time::toMicroseconds(imgTimestamp);
-                        // std::cout << "TimeStamp: " << ts << std::endl;
                         std::pair<cluon::data::TimeStamp, cv::Mat> imgAndTimeStamp(imgTimestamp, img);
                         detectcone.getImgAndTimeStamp(imgAndTimeStamp);
                         detectcone.checkLidarState();
@@ -131,6 +141,7 @@ int32_t main(int32_t argc, char **argv) {
                             readyState = detectcone.getModuleState();
                         }                       
                     }
+                    file.close();
                     cvReleaseImageHeader(&image);
                 }
                 else {

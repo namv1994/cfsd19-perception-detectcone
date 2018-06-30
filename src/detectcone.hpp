@@ -118,6 +118,7 @@ class DetectCone {
   bool m_offline;
   bool m_annotate;
   bool m_verbose;
+  bool m_forwardDetection;
   bool m_readyStateMachine;
   tiny_dnn::network<tiny_dnn::sequential> m_model;
   bool m_lidarIsWorking;
