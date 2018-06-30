@@ -68,7 +68,7 @@ class DetectCone {
   void blockMatching(cv::Mat&, cv::Mat, cv::Mat);
   void reconstruction(cv::Mat, cv::Mat&, cv::Mat&, cv::Mat&, cv::Mat&);
   void convertImage(cv::Mat, int, int, tiny_dnn::vec_t&);
-  void adjustLighting(cv::Mat img, cv::Mat& outImg);
+  double adjustLighting(cv::Mat img);
   void CNN(const std::string&, tiny_dnn::network<tiny_dnn::sequential>&);
   void imRegionalMax(std::vector<Cone>&, size_t, cv::Mat, int, double, int);
   float median(std::vector<float>);
