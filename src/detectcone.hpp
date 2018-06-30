@@ -72,10 +72,10 @@ class DetectCone {
   void CNN(const std::string&, tiny_dnn::network<tiny_dnn::sequential>&);
   void imRegionalMax(std::vector<Cone>&, size_t, cv::Mat, int, double, int);
   float median(std::vector<float>);
-  float mean(std::vector<float>);
+  cv::Point3f mean(std::vector<cv::Point3f>);
   void gather_points(cv::Mat, std::vector<float>, std::vector<int>&, std::vector<float>&);
   void filterKeypoints(std::vector<cv::Point3f>&);
-  void xyz2xy(cv::Mat, cv::Point3f, cv::Point2f&, int&);
+  int xyz2xy(cv::Mat Q, cv::Point3f xyz, cv::Point2f& xy, float radius);
   int countFiles(const char*);
   void annotate(cv::Mat, int, cv::Point, int);
   void forwardDetectionORB(cv::Mat img);
@@ -85,6 +85,8 @@ class DetectCone {
   //void initializeCollection();
   Eigen::MatrixXd Spherical2Cartesian(double, double, double);
   void Cartesian2Spherical(double, double, double, opendlv::logic::sensation::Point&);
+  void LidarToCoG(opendlv::logic::sensation::Point& conePoint);
+  void CameraToCoG(opendlv::logic::sensation::Point& conePoint);
   void SendCollectedCones(Eigen::MatrixXd);
   void SendMatchedContainer(std::vector<Cone>);
 
@@ -117,7 +119,7 @@ class DetectCone {
   bool m_annotate;
   bool m_verbose;
   bool m_readyStateMachine;
-  tiny_dnn::network<tiny_dnn::sequential> m_forwardModel, m_backwardModel;
+  tiny_dnn::network<tiny_dnn::sequential> m_model;
   bool m_lidarIsWorking;
   int64_t m_checkLidarMilliseconds;
   uint32_t m_senderStamp = 118;
@@ -131,6 +133,7 @@ class DetectCone {
   
   const double DEG2RAD = 0.017453292522222; // PI/180.0
   const double RAD2DEG = 57.295779513082325; // 1.0 / DEG2RAD;
+  const double PI = 3.14159265;
 };
 
 

@@ -37,7 +37,8 @@ int32_t main(int32_t argc, char **argv) {
         uint32_t senderStamp = static_cast<uint32_t>(std::stoi(commandlineArguments["senderStamp"]));
         uint32_t stateMachineStamp = static_cast<uint32_t>(std::stoi(commandlineArguments["stateMachineId"]));
 
-        const bool VERBOSE{commandlineArguments.count("verbose") != 0};
+        // const bool VERBOSE{commandlineArguments.count("verbose") != 0};
+        bool sentReadySignal = false;
         
         cluon::OD4Session od4{static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
         DetectCone detectcone(commandlineArguments, od4);
@@ -107,6 +108,8 @@ int32_t main(int32_t argc, char **argv) {
                         image->imageData = sharedMemory->data();
                         image->imageDataOrigin = image->imageData;
                         cv::Mat img = cv::cvarrToMat(image); 
+                        sharedMemory->unlock();
+                        cv::waitKey(1);
 
                         cluon::data::TimeStamp imgTimestamp = cluon::time::now();
                         // int64_t ts = cluon::time::toMicroseconds(imgTimestamp);
@@ -116,18 +119,17 @@ int32_t main(int32_t argc, char **argv) {
                         detectcone.checkLidarState();
 
                         if(readyState){
-                            if(VERBOSE)
+                            if(!sentReadySignal){
                                 std::cout << "detectcone module is ready!" << std::endl;
+                                sentReadySignal = true;
+                            }
                             opendlv::system::SignalStatusMessage ssm;
                             ssm.code(1);
                             cluon::data::TimeStamp sampleTime = cluon::time::now();
                             od4.send(ssm, sampleTime, senderStamp);
                         }else{
                             readyState = detectcone.getModuleState();
-                        }
-                        
-                        sharedMemory->unlock();
-                        cv::waitKey(1);
+                        }                       
                     }
                     cvReleaseImageHeader(&image);
                 }
