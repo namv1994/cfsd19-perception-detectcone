@@ -77,7 +77,8 @@ class DetectCone {
   void filterKeypoints(std::vector<cv::Point3f>&);
   int xyz2xy(cv::Mat Q, cv::Point3f xyz, cv::Point2f& xy, float radius);
   int countFiles(const char*);
-  void annotate(cv::Mat, int, cv::Point, int);
+  void annotate(cv::Mat, cv::Mat disp, int, cv::Point, int);
+  void rgbdMaker(cv::Mat img_rgb, cv::Mat img_d, cv::Mat& img_rgbd);
   void forwardDetectionORB(cv::Mat img);
   std::vector<Cone> backwardDetection(cv::Mat, Eigen::MatrixXd&, int64_t);
   std::vector<Cone> MatchCones(std::vector<Cone>);
@@ -118,6 +119,7 @@ class DetectCone {
   bool m_offline;
   bool m_annotate;
   bool m_verbose;
+  bool m_forwardDetection;
   bool m_readyStateMachine;
   tiny_dnn::network<tiny_dnn::sequential> m_model;
   bool m_lidarIsWorking;
