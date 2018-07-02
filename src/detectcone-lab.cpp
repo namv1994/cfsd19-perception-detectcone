@@ -299,11 +299,11 @@ void DetectCone::reconstruction(cv::Mat img, cv::Mat& Q, cv::Mat& disp, cv::Mat&
 }
 
 void DetectCone::convertImage(cv::Mat img, int w, int h, tiny_dnn::vec_t& data){
-  cv::Mat resized, img2;
-  adjustLighting(img, img2);
-  cv::resize(img2, resized, cv::Size(w, h));
-  data.resize(w * h * 3);
-  for (int c = 0; c < 3; ++c) {
+  cv::Mat resized;
+  // adjustLighting(img, img2);
+  cv::resize(img, resized, cv::Size(w, h));
+  data.resize(w * h * 4);
+  for (int c = 0; c < 4; ++c) {
     for (int y = 0; y < h; ++y) {
       for (int x = 0; x < w; ++x) {
        data[c * w * h + y * w + x] =
@@ -317,6 +317,8 @@ void DetectCone::adjustLighting(cv::Mat img, cv::Mat& outImg){
   cv::Scalar meanScalar = cv::mean(img);
   double mean = (meanScalar.val[0]+meanScalar.val[1]+meanScalar.val[2])/3;
   outImg = img*128/mean;
+  // cv::add(img,128-mean,outImg);
+  // cv::add(img,cv::Scalar(128,128,128)-meanScalar,outImg);
 }
 
 void DetectCone::CNN(const std::string& dictionary, tiny_dnn::network<tiny_dnn::sequential>& model) {
@@ -330,7 +332,7 @@ void DetectCone::CNN(const std::string& dictionary, tiny_dnn::network<tiny_dnn::
 
   tiny_dnn::core::backend_t backend_type = tiny_dnn::core::default_engine();
 
-  model << conv(64, 64, 4, 3, 16, tiny_dnn::padding::valid, true, 2, 2, backend_type) << tanh()                                                   
+  model << conv(64, 64, 4, 4, 16, tiny_dnn::padding::valid, true, 2, 2, backend_type) << tanh()                                                   
      << conv(31, 31, 3, 16, 16, tiny_dnn::padding::valid, true, 2, 2, backend_type) << tanh() 
      << conv(15, 15, 3, 16, 32, tiny_dnn::padding::valid, true, 2, 2, backend_type) << tanh() 
      << conv(7, 7, 3, 32, 32, tiny_dnn::padding::valid, true, 2, 2, backend_type) << tanh()                    
@@ -533,7 +535,7 @@ int DetectCone::countFiles(const char* path){
   return count;
 }
 
-void DetectCone::annotate(cv::Mat img, int maxIndex, cv::Point position, int radius){
+void DetectCone::annotate(cv::Mat img, cv::Mat disp8, int maxIndex, cv::Point position, int radius){
   std::string path = "/opt/annotations/"+std::to_string(maxIndex);
   int num = countFiles(path.c_str());
   path += "/"+std::to_string(maxIndex)+"_"+std::to_string(num)+".png";
@@ -546,9 +548,21 @@ void DetectCone::annotate(cv::Mat img, int maxIndex, cv::Point position, int rad
   if (0 > roi.x || 0 > roi.width || roi.x + roi.width > img.cols || 0 > roi.y || 0 > roi.height || roi.y + roi.height > img.rows){
     return;
   }
-  cv::Mat patchImg = img(roi);
-  cv::resize(patchImg, patchImg, cv::Size(m_patchSize,m_patchSize));
-  cv::imwrite(path, patchImg);
+  cv::Mat img_rgb = img(roi);
+  cv::Mat img_d = disp8(roi);
+  // adjustLighting(img_roi_tmp, img_roi);
+  cv::resize(img_rgb, img_rgb, cv::Size(m_patchSize,m_patchSize));
+  cv::imwrite(path, img_rgb);
+  cv::resize(img_d, img_d, cv::Size(m_patchSize,m_patchSize));
+  std::string path_alpha = "/opt/annotations/alpha/"+std::to_string(maxIndex)+"_"+std::to_string(num)+".png";
+  cv::imwrite(path_alpha, img_d);
+}
+
+void DetectCone::rgbdMaker(cv::Mat img_rgb, cv::Mat img_d, cv::Mat& img_rgbd){
+  cv::Mat ch[4];
+  cv::split(img_rgb, ch);
+  ch[3] = img_d;
+  cv::merge(ch, 4, img_rgbd);
 }
 
 void DetectCone::forwardDetectionORB(cv::Mat img){
@@ -563,8 +577,9 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
   std::vector<int> verifiedIndex;
   std::vector<cv::Point> candidates;
 
-  cv::Mat Q, disp, XYZ, imgRoI, imgSource;
+  cv::Mat Q, disp, XYZ, imgRoI, imgSource, disp8;
   reconstruction(img, Q, disp, img, XYZ);
+  cv::normalize(disp, disp8, 0, 255, 32, CV_8U);
   
   int rowT = 190;
   int rowB = 320;
@@ -592,7 +607,7 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
     return;
   filterKeypoints(point3Ds);
   for(size_t i = 0; i < point3Ds.size(); i++){
-    int radius = xyz2xy(Q, point3Ds[i], point2D, 0.4f);
+    int radius = xyz2xy(Q, point3Ds[i], point2D, 0.3f);
     int x = int(point2D.x);
     int y = int(point2D.y);
 
@@ -605,9 +620,12 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
     if (0 > roi.x || 0 >= roi.width || roi.x + roi.width > img.cols || 0 > roi.y || 0 >= roi.height || roi.y + roi.height > img.rows)
       continue;
     else{
-      cv::Mat patchImg = img(roi);
+      cv::Mat img_rgb = img(roi);
+      cv::Mat img_d = disp8(roi);
+      cv::Mat img_rgbd;
+      rgbdMaker(img_rgb, img_d, img_rgbd);
       tiny_dnn::vec_t data;
-      convertImage(patchImg, m_patchSize, m_patchSize, data);
+      convertImage(img_rgbd, m_patchSize, m_patchSize, data);
       inputs.push_back({data});
       verifiedIndex.push_back(i);
       candidates.push_back(cv::Point(x,y));
@@ -650,14 +668,14 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
       cv::Point3f point3D = XYZ.at<cv::Point3f>(position);
       std::string labelName = labels[maxIndex];
       cv::Point2f position_tmp;
-      int radius = xyz2xy(Q, point3D, position_tmp, 0.4f);
+      int radius = xyz2xy(Q, point3D, position_tmp, 0.3f);
 
       if(radius<=0){
         continue;
       }
 
       if(m_annotate){
-        annotate(imgSource, maxIndex, position, radius);
+        annotate(imgSource, disp8, maxIndex, position, radius);
       }
 
       //Eigen::MatrixXd cone = Eigen::MatrixXd::Zero(4,1);
@@ -704,8 +722,9 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
 
 std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& lidarCones, int64_t minValue){
   //Given RoI in 3D world, project back to the camera frame and then detect
-  cv::Mat disp, Q, XYZ, imgSource;
+  cv::Mat disp, Q, XYZ, imgSource, disp8;
   reconstruction(img, Q, disp, img, XYZ);
+  cv::normalize(disp, disp8, 0, 255, 32, CV_8U);
   std::vector<tiny_dnn::tensor_t> inputs;
   std::vector<int> verifiedIndex;
   std::vector<cv::Vec3i> porperty;
@@ -741,21 +760,21 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
       cone.m_label = 10; 
     else{
       // cv::circle(img, cv::Point(x,y), radius, cv::Scalar (255,255,255), 2);
-      cv::Mat patchImg = imgSource(roi);
+      // cv::Mat patchImg = imgSource(roi);
       std::vector<cv::Point3f> point3Ds;
       for(size_t j = 0; j < keypoints.size(); j++){
         cv::Point position(int(keypoints[j].pt.x), int(keypoints[j].pt.y+rowT));
         if(position.x >= roi.x && position.x <= roi.x+roi.width && position.y >= roi.y && position.y <= roi.y+roi.height){
           cv::Point3f point3D = XYZ.at<cv::Point3f>(position);
           // std::cout << "distance: " << std::pow(point3D.x-lidarCone.x,2)+std::pow(point3D.y-lidarCone.y,2)+std::pow(point3D.z-lidarCone.z,2) << std::endl;
-          if(point3D.y>0.7 && point3D.y<1.2 && std::pow(point3D.x-lidarCone.x,2)+std::pow(point3D.y-lidarCone.y,2)+std::pow(point3D.z-lidarCone.z,2)<2){
+          if(point3D.y>0.7 && point3D.y<1.2 && std::pow(std::pow(point3D.x-lidarCone.x,2)+std::pow(point3D.y-lidarCone.y,2)+std::pow(point3D.z-lidarCone.z,2),0.5)<1.2){
             point3Ds.push_back(point3D);
           }
         }
       }
       if(point3Ds.size()>0){
         cv::Point3f point3D = mean(point3Ds);
-        radius = xyz2xy(Q, point3D, point2D, 0.4f);
+        radius = xyz2xy(Q, point3D, point2D, 0.2f);
       }
       x = int(point2D.x);
       y = int(point2D.y);
@@ -766,13 +785,44 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
       if (0 >= roi.x || 0 >= roi.width || roi.x + roi.width > img.cols || 0 >= roi.y || 0 >= roi.height || roi.y + roi.height >= img.rows || radius <= 0)
         cone.m_label = 10; 
       else{
-        patchImg = imgSource(roi);
-        tiny_dnn::vec_t data;
-        convertImage(patchImg, m_patchSize, m_patchSize, data);
-        inputs.push_back({data});
-        cone.m_label = 0;
-        verifiedIndex.push_back(i);
-        porperty.push_back(cv::Vec3i(x,y,radius));
+        cv::Mat patchImg = img(roi);
+        cv::Mat lab, ch[3], blur, th;
+        cv::cvtColor(patchImg, lab, CV_BGR2Lab);
+        cv::split(lab, ch);
+        cv::GaussianBlur(ch[0], blur, cv::Size(3,3), 0, 0);
+        cv::threshold(blur, th, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+        if(cv::sum(th)[0]>th.rows*th.cols*255/2)
+          th = 255-th;
+        cv::imwrite("th.png",th);
+        cv::Point centerPoint(0,0);
+        int count = 0;
+        for(int r = 0; r < th.rows; r++)
+          for(int c = 0; c < th.cols; c++)
+            if(th.at<uchar>(c,r) == 1){
+              centerPoint += cv::Point(c,r);
+              count++;
+            }
+        centerPoint /= count;
+        x = centerPoint.x+roi.x;
+        y = centerPoint.y+roi.y;
+        roi.x = std::max(x - radius, 0);
+        roi.y = std::max(y - radius, 0);
+        roi.width = std::min(std::max(x + radius,0), img.cols) - roi.x;
+        roi.height = std::min(std::max(y + radius,0), img.rows) - roi.y;
+        if (0 >= roi.x || 0 >= roi.width || roi.x + roi.width > img.cols || 0 >= roi.y || 0 >= roi.height || roi.y + roi.height >= img.rows || radius <= 0)
+          cone.m_label = 10; 
+        else{
+          cv::Mat img_rgb = img(roi);
+          cv::Mat img_d = disp8(roi);
+          cv::Mat img_rgbd;
+          rgbdMaker(img_rgb, img_d, img_rgbd);
+          tiny_dnn::vec_t data;
+          convertImage(img_rgbd, m_patchSize, m_patchSize, data);
+          inputs.push_back({data});
+          cone.m_label = 0;
+          verifiedIndex.push_back(i);
+          porperty.push_back(cv::Vec3i(x,y,radius));
+        }
       }
     }
     localCones.push_back(cone);
@@ -794,7 +844,7 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
       int radius = porperty[i][2];
 
       if(m_annotate){
-        annotate(imgSource, maxIndex, position, radius);
+        annotate(imgSource, disp8, maxIndex, position, radius);
       }
 
       std::string labels[] = {"background", "blue", "yellow", "orange", "big orange"};

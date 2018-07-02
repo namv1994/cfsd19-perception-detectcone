@@ -39,16 +39,7 @@ int32_t main(int32_t argc, char **argv) {
 
         // const bool VERBOSE{commandlineArguments.count("verbose") != 0};
         bool sentReadySignal = false;
-<<<<<<< HEAD
         std::string filepathTimestamp = "/opt/timestamp/timestamps.txt";
-=======
-
-        std::string filepathTimestamp = "/opt/timestamp/timestamps.txt";
-        std::ofstream file;
-        file.open(filepathTimestamp.c_str());
-        size_t frameCounter = 0;
-        std::string imgPath = "/opt/images/";
->>>>>>> b15e9f4c70dbca30d873db370a2f0712044619f5
         
         cluon::OD4Session od4{static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
         DetectCone detectcone(commandlineArguments, od4);
