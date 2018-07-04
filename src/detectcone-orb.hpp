@@ -72,7 +72,6 @@ class DetectCone {
   void CNN(const std::string&, tiny_dnn::network<tiny_dnn::sequential>&);
   void imRegionalMax(std::vector<Cone>&, size_t, cv::Mat, int, double, int);
   cv::Point3f median(std::vector<cv::Point3f> vec3);
-  cv::Point mean(std::vector<cv::Point>);
   cv::Point3f mean(std::vector<cv::Point3f>);
   void gather_points(cv::Mat, std::vector<float>, std::vector<int>&, std::vector<float>&);
   void filterKeypoints(std::vector<cv::Point3f>&);
