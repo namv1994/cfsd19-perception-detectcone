@@ -58,7 +58,8 @@ class DetectCone {
   void nextContainer(cluon::data::Envelope data);
   void receiveCombinedMessage(cluon::data::TimeStamp currentFrameTime,std::map<int,ConePackage> currentFrame);
   void checkLidarState();
-  bool getModuleState();
+  bool getReadyState();
+  bool getRunningState();
   void getImgAndTimeStamp(std::pair<cluon::data::TimeStamp, cv::Mat>);
   void getTimeStamp(const std::string);
   void setStateMachineStatus(cluon::data::Envelope data); 
@@ -72,6 +73,7 @@ class DetectCone {
   void CNN(const std::string&, tiny_dnn::network<tiny_dnn::sequential>&);
   void imRegionalMax(std::vector<Cone>&, size_t, cv::Mat, int, double, int);
   cv::Point3f median(std::vector<cv::Point3f> vec3);
+  cv::Point median(std::vector<cv::Point> vec2);
   cv::Point mean(std::vector<cv::Point>);
   cv::Point3f mean(std::vector<cv::Point3f>);
   void gather_points(cv::Mat, std::vector<float>, std::vector<int>&, std::vector<float>&);
@@ -120,7 +122,7 @@ class DetectCone {
   bool m_annotate;
   bool m_verbose;
   bool m_forwardDetection;
-  bool m_readyStateMachine;
+  bool m_runningState;
   tiny_dnn::network<tiny_dnn::sequential> m_model;
   bool m_lidarIsWorking;
   int64_t m_checkLidarMilliseconds;

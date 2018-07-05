@@ -46,7 +46,7 @@ DetectCone::DetectCone(std::map<std::string, std::string> commandlineArguments, 
 , m_annotate(false)
 , m_verbose(false)
 , m_forwardDetection(false)
-, m_readyStateMachine(false)
+, m_runningState(false)
 , m_model()
 , m_lidarIsWorking(false)
 , m_checkLidarMilliseconds()
@@ -82,7 +82,7 @@ void DetectCone::setUp(std::map<std::string, std::string> commandlineArguments)
   m_checkLidarMilliseconds = static_cast<int64_t>(std::stoi(commandlineArguments["checkLidarMilliseconds"])); 
   m_senderStamp = static_cast<uint32_t>(std::stoi(commandlineArguments["senderStamp"]));
   m_annotate = static_cast<bool>(std::stoi(commandlineArguments["annotate"]));
-  m_readyStateMachine = static_cast<bool>(std::stoi(commandlineArguments["readyStateMachine"]));
+  m_runningState = static_cast<bool>(std::stoi(commandlineArguments["readyStateMachine"]));
   m_verbose = static_cast<bool>(commandlineArguments.count("verbose") != 0);
   m_forwardDetection = static_cast<bool>(std::stoi(commandlineArguments["forwardDetection"]));
 
@@ -160,17 +160,21 @@ void DetectCone::setStateMachineStatus(cluon::data::Envelope data){
   auto machineStatus = cluon::extractMessage<opendlv::proxy::SwitchStateReading>(std::move(data));
   int state = machineStatus.state();
   if(state == 2){
-    m_readyStateMachine = true;
+    m_runningState = true;
   }
 }
 
-bool DetectCone::getModuleState(){
+bool DetectCone::getReadyState(){
   if(m_count>10){
     cv::imwrite("/opt/results/"+std::to_string(m_count)+"_ready.png", m_img);
     return 1;
   }
   else
     return 0;
+}
+
+bool DetectCone::getRunningState(){
+  return m_runningState;
 }
 
 void DetectCone::getImgAndTimeStamp(std::pair<cluon::data::TimeStamp, cv::Mat> imgAndTimeStamp){
@@ -404,6 +408,27 @@ cv::Point3f DetectCone::median(std::vector<cv::Point3f> vec3) {
   return cv::Point3f(tvecan[0],tvecan[1],tvecan[2]);
 }
 
+cv::Point DetectCone::median(std::vector<cv::Point> vec2) {
+  size_t size = vec2.size();
+  float tvecan[3];
+  std::vector<float> vec[2];
+  for (size_t i = 0; i < size; i++){
+    vec[0].push_back(vec2[i].x);
+    vec[1].push_back(vec2[i].y);
+  }
+
+  for (size_t i = 0; i < 2; i++){
+    std::sort(vec[i].begin(), vec[i].end());
+    if (size % 2 == 0) { // even
+      tvecan[i] = (vec[i][size/2-1] + vec[i][size/2])/2;
+    }
+    else //odd
+      tvecan[i] = vec[i][size/2];
+  }
+    
+  return cv::Point(int(tvecan[0]),int(tvecan[1]));
+}
+
 cv::Point DetectCone::mean(std::vector<cv::Point> vec) {
   cv::Point result{0,0};
   size_t size = vec.size();
@@ -577,7 +602,7 @@ void DetectCone::annotate(cv::Mat img, int maxIndex, cv::Point position, int rad
 void DetectCone::forwardDetectionORB(cv::Mat img){
   //Given RoI by ORB detector and detected by CNN
   // std::lock_guard<std::mutex> lockStateMachine(m_stateMachineMutex);
-  if(!m_readyStateMachine)
+  if(!m_runningState)
   {
     return;
   }
@@ -771,15 +796,15 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
         cv::Point position(int(keypoints[j].pt.x), int(keypoints[j].pt.y+rowT));
         if(position.x >= roi.x && position.x <= roi.x+roi.width && position.y >= roi.y && position.y <= roi.y+roi.height){
           cv::Point3f point3D = XYZ.at<cv::Point3f>(position);
-          // std::cout << "distance: " << std::pow(point3D.x-lidarCone.x,2)+std::pow(point3D.y-lidarCone.y,2)+std::pow(point3D.z-lidarCone.z,2) << std::endl;
-          float distance = static_cast<float>(std::pow(std::pow(point3D.x-lidarCone.x,2)+std::pow(point3D.z-lidarCone.z,2),0.5));
-          if(point3D.y>0.7 && point3D.y<1.2 && distance<m_matchDistance){
+          float distance = static_cast<float>(std::pow(std::pow(point3D.x-lidarCone.x,2)+std::pow(point3D.y-lidarCone.y,2)+std::pow(point3D.z-lidarCone.z,2),0.5));
+          std::cout << "point3D: " << point3D << ", lidarCone: " << lidarCone << ", distance: " << distance << std::endl;
+          if(point3D.y>0.6 && point3D.y<1.1 && distance<m_matchDistance){
             positions.push_back(position);
           }
         }
       }
       if(positions.size()>0){
-        cv::Point position = mean(positions);
+        cv::Point position = median(positions);
         cv::Point3f point3D = XYZ.at<cv::Point3f>(position);
         radius = xyz2xy(Q, point3D, point2D, 0.3f);
       }
@@ -918,7 +943,7 @@ void DetectCone::SendCollectedCones(Eigen::MatrixXd lidarCones)
 {
   //Convert to cartesian
   std::lock_guard<std::mutex> lockStateMachine(m_stateMachineMutex);
-  if(!m_readyStateMachine)
+  if(!m_runningState)
   {
     return;
   }
@@ -1096,33 +1121,56 @@ std::vector<Cone> DetectCone::MatchCones(std::vector<Cone> cones){
 
 void DetectCone::SendMatchedContainer(std::vector<Cone> cones)
 {
-
   cluon::data::TimeStamp sampleTime = m_coneTimeStamp;
+  bool noConeDetected = true;
   for(uint32_t n = 0; n < cones.size(); n++){
-
-    opendlv::logic::sensation::Point conePoint;
-    Cartesian2Spherical(cones[n].getX(), cones[n].getY(), cones[n].getZ(), conePoint);
-    if(m_lidarIsWorking){
-      LidarToCoG(conePoint);
-    }else{
-      CameraToCoG(conePoint);
+    if(cones[n].m_label != 10){
+      noConeDetected = false;
     }
-    uint32_t index = cones.size()-1-n;
+  }
+  if(noConeDetected){
     opendlv::logic::perception::ObjectDirection coneDirection;
-    coneDirection.objectId(index);
-    coneDirection.azimuthAngle(-conePoint.azimuthAngle());  //Negative to convert to car frame from LIDAR
-    coneDirection.zenithAngle(conePoint.zenithAngle());
+    coneDirection.objectId(0);
+    coneDirection.azimuthAngle(0);
+    coneDirection.zenithAngle(0);
     m_od4.send(coneDirection,sampleTime,m_senderStamp);
 
     opendlv::logic::perception::ObjectDistance coneDistance;
-    coneDistance.objectId(index);
-    coneDistance.distance(conePoint.distance());
+    coneDistance.objectId(0);
+    coneDistance.distance(0);
     m_od4.send(coneDistance,sampleTime,m_senderStamp);
 
     opendlv::logic::perception::ObjectType coneType;
-    coneType.objectId(index);
-    coneType.type(uint32_t(cones[n].m_label));
+    coneType.objectId(0);
+    coneType.type(666);
     m_od4.send(coneType,sampleTime,m_senderStamp);
+  }
+  else{
+    for(uint32_t n = 0; n < cones.size(); n++){
+      opendlv::logic::sensation::Point conePoint;
+      Cartesian2Spherical(cones[n].getX(), cones[n].getY(), cones[n].getZ(), conePoint);
+      if(m_lidarIsWorking){
+        LidarToCoG(conePoint);
+      }else{
+        CameraToCoG(conePoint);
+      }
+      uint32_t index = cones.size()-1-n;
+      opendlv::logic::perception::ObjectDirection coneDirection;
+      coneDirection.objectId(index);
+      coneDirection.azimuthAngle(-conePoint.azimuthAngle());  //Negative to convert to car frame from LIDAR
+      coneDirection.zenithAngle(conePoint.zenithAngle());
+      m_od4.send(coneDirection,sampleTime,m_senderStamp);
+
+      opendlv::logic::perception::ObjectDistance coneDistance;
+      coneDistance.objectId(index);
+      coneDistance.distance(conePoint.distance());
+      m_od4.send(coneDistance,sampleTime,m_senderStamp);
+
+      opendlv::logic::perception::ObjectType coneType;
+      coneType.objectId(index);
+      coneType.type(uint32_t(cones[n].m_label));
+      m_od4.send(coneType,sampleTime,m_senderStamp);
+    }
   }
   cluon::data::TimeStamp endTime = cluon::time::now();
   if(m_verbose)

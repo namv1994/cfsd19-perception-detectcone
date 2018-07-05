@@ -106,6 +106,7 @@ int32_t main(int32_t argc, char **argv) {
                     image->imageDataOrigin = image->imageData;
                     sharedMemory->unlock();
                     bool readyState = false;
+                    bool runningState = false;
                     while (od4.isRunning()) {
                         // The shared memory uses a pthread broadcast to notify us; just sleep to get awaken up.
                         sharedMemory->wait();
@@ -116,11 +117,6 @@ int32_t main(int32_t argc, char **argv) {
                         cv::Mat img = cv::cvarrToMat(image); 
 
                         cluon::data::TimeStamp imgTimestamp = cluon::time::now();
-                        int64_t ts = cluon::time::toMicroseconds(imgTimestamp);
-                        file << std::setprecision(19) << ts << std::endl;
-                        std::string saveString = imgPath + std::to_string(frameCounter++) + ".png";
-                        cv::imwrite( saveString, img);
-
                         sharedMemory->unlock();
                         cv::waitKey(1);
 
@@ -138,7 +134,16 @@ int32_t main(int32_t argc, char **argv) {
                             cluon::data::TimeStamp sampleTime = cluon::time::now();
                             od4.send(ssm, sampleTime, senderStamp);
                         }else{
-                            readyState = detectcone.getModuleState();
+                            readyState = detectcone.getReadyState();
+                        }
+
+                        if(runningState){
+                            int64_t ts = cluon::time::toMicroseconds(imgTimestamp);
+                            file << std::setprecision(19) << ts << std::endl;
+                            std::string saveString = imgPath + std::to_string(frameCounter++) + ".png";
+                            cv::imwrite( saveString, img);
+                        }else{
+                            runningState = detectcone.getRunningState();
                         }                       
                     }
                     file.close();
