@@ -67,7 +67,7 @@ services:
         command: "/opt/od4/bin/odcockpit --cid=${CID}" 
 
     cfsd18-perception-detectcone:
-        image: "chalmersfsd/cfsd18-perception-detectcone:pre-release-8f1dfc2"
+        image: "chalmersfsd/cfsd18-perception-detectcone:pre-release-9ecd659"
         network_mode: "host"
         ipc: host
         working_dir: /opt
