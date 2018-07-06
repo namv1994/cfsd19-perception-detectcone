@@ -67,7 +67,7 @@ services:
         command: "/opt/od4/bin/odcockpit --cid=${CID}" 
 
     cfsd18-perception-detectcone:
-        image: "detectcone:test"
+        image: "chalmersfsd/cfsd18-perception-detectcone:pre-release-8f1dfc2"
         network_mode: "host"
         ipc: host
         working_dir: /opt
@@ -75,7 +75,7 @@ services:
           - DISPLAY=$DISPLAY
         volumes:
          - /tmp/.X11-unix:/tmp/.X11-unix
-         - /media/weiming/46823A5A823A4F25/data/2:/opt
+         - .:/opt
          - /media/weiming/Ny volym/ubuntu-project/cone-detection/models/model:/opt/model
          - "/dev/shm:/dev/shm"
         # depends_on:

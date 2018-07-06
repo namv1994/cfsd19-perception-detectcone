@@ -59,6 +59,7 @@ DetectCone::DetectCone(std::map<std::string, std::string> commandlineArguments, 
 , m_fastThreshold(20)
 , m_matchDistance(1.5)
 , m_orbPatchSize(31)
+, m_folderName()
 {
   m_diffVec = 0;
   m_pointMatched = Eigen::MatrixXd::Zero(4,1);
@@ -91,6 +92,10 @@ void DetectCone::setUp(std::map<std::string, std::string> commandlineArguments)
   m_orbPatchSize = static_cast<uint32_t>(std::stoi(commandlineArguments["orbPatchSize"]));
 
   CNN("model", m_model);
+}
+
+void DetectCone::getFolderName(const std::string folderName){
+  m_folderName = folderName;
 }
 
 void DetectCone::receiveCombinedMessage(cluon::data::TimeStamp currentFrameTime,std::map<int,ConePackage> currentFrame){
@@ -170,7 +175,7 @@ void DetectCone::setStateMachineStatus(cluon::data::Envelope data){
 
 bool DetectCone::getReadyState(){
   if(m_count>10){
-    cv::imwrite("/opt/results/"+std::to_string(m_count)+"_ready.png", m_img);
+    cv::imwrite("/opt/"+m_folderName+"/results/"+std::to_string(m_count)+"_ready.png", m_img);
     return 1;
   }
   else
@@ -776,7 +781,7 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
   cv::line(img, cv::Point(0,rowT), cv::Point(m_width,rowT), cv::Scalar(0,0,255), 2);
   cv::line(img, cv::Point(0,rowB), cv::Point(m_width,rowB), cv::Scalar(0,0,255), 2);
 
-  cv::imwrite("/opt/results/"+std::to_string(m_currentFrame++)+".png", img);
+  cv::imwrite("/opt/"+m_folderName+"/results/"+std::to_string(m_currentFrame++)+".png", img);
   std::vector<Cone> conesToSend = MatchCones(cones);
   SendMatchedContainer(conesToSend);
 }
@@ -931,7 +936,7 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
   // cv::line(img, cv::Point(0,rowT), cv::Point(m_width,rowT), cv::Scalar(0,0,255), 2);
   // cv::line(img, cv::Point(0,rowB), cv::Point(m_width,rowB), cv::Scalar(0,0,255), 2);
 
-  cv::imwrite("/opt/results/"+std::to_string(m_currentFrame++)+"_"+std::to_string(minValue)+".png", img);
+  cv::imwrite("/opt/"+m_folderName+"/results/"+std::to_string(m_currentFrame++)+"_"+std::to_string(minValue)+".png", img);
   return localCones;
 }
 

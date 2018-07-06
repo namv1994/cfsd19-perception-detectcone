@@ -67,6 +67,18 @@ int32_t main(int32_t argc, char **argv) {
         od4.dataTrigger(opendlv::logic::perception::ObjectDistance::ID(),envelopeRecieved);
         od4.dataTrigger(opendlv::proxy::SwitchStateReading::ID(),stateMachineStatusEnvelope);
 
+        cluon::data::TimeStamp imgTimestamp = cluon::time::now();
+        int64_t folderId = cluon::time::toMicroseconds(imgTimestamp);
+        std::string command = "mkdir /opt/"+std::to_string(folderId);
+        system(command.c_str());
+        command = "mkdir /opt/"+std::to_string(folderId)+"/timestamp/";
+        system(command.c_str());
+        command = "mkdir /opt/"+std::to_string(folderId)+"/images/";
+        system(command.c_str());
+        command = "mkdir /opt/"+std::to_string(folderId)+"/results/";
+        system(command.c_str());
+        detectcone.getFolderName(std::to_string(folderId));
+
         if(offline){
             detectcone.getTimeStamp("/opt/timestamp/timestamps.txt");
             while (od4.isRunning()) {
@@ -86,8 +98,6 @@ int32_t main(int32_t argc, char **argv) {
                 (void)ID;
                 (void)SIZE;
 
-                cluon::data::TimeStamp imgTimestamp = cluon::time::now();
-                int64_t folderId = cluon::time::toMicroseconds(imgTimestamp);
                 std::string filepathTimestamp = "/opt/"+std::to_string(folderId)+"/timestamp/timestamps.txt";
                 std::string imgPath = "/opt/"+std::to_string(folderId)+"/images/";
                 std::ofstream file;
