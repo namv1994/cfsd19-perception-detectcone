@@ -39,7 +39,6 @@ int32_t main(int32_t argc, char **argv) {
 
         // const bool VERBOSE{commandlineArguments.count("verbose") != 0};
         bool sentReadySignal = false;
-        std::string filepathTimestamp = "/opt/timestamp/timestamps.txt";
         
         cluon::OD4Session od4{static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
         DetectCone detectcone(commandlineArguments, od4);
@@ -69,7 +68,7 @@ int32_t main(int32_t argc, char **argv) {
         od4.dataTrigger(opendlv::proxy::SwitchStateReading::ID(),stateMachineStatusEnvelope);
 
         if(offline){
-            detectcone.getTimeStamp(filepathTimestamp);
+            detectcone.getTimeStamp("/opt/timestamp/timestamps.txt");
             while (od4.isRunning()) {
                 detectcone.checkLidarState();
                 cv::waitKey(1);
@@ -87,10 +86,13 @@ int32_t main(int32_t argc, char **argv) {
                 (void)ID;
                 (void)SIZE;
 
+                cluon::data::TimeStamp imgTimestamp = cluon::time::now();
+                int64_t folderId = cluon::time::toMicroseconds(imgTimestamp);
+                std::string filepathTimestamp = "/opt/"+std::to_string(folderId)+"/timestamp/timestamps.txt";
+                std::string imgPath = "/opt/"+std::to_string(folderId)+"/images/";
                 std::ofstream file;
                 file.open(filepathTimestamp.c_str());
                 size_t frameCounter = 0;
-                std::string imgPath = "/opt/images/";
                 
                 std::unique_ptr<cluon::SharedMemory> sharedMemory(new cluon::SharedMemory{NAME});
                 if (sharedMemory && sharedMemory->valid()) {
@@ -116,7 +118,7 @@ int32_t main(int32_t argc, char **argv) {
                         image->imageDataOrigin = image->imageData;
                         cv::Mat img = cv::cvarrToMat(image); 
 
-                        cluon::data::TimeStamp imgTimestamp = cluon::time::now();
+                        imgTimestamp = cluon::time::now();
                         sharedMemory->unlock();
                         cv::waitKey(1);
 
