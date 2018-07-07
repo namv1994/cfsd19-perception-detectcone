@@ -109,7 +109,7 @@ class DetectCone {
   Eigen::MatrixXd m_coneCollector;
   uint32_t m_lastObjectId;
   bool m_newFrame;
-  bool m_processing;
+  // bool m_processing;
   std::mutex m_coneMutex;
   std::mutex m_imgMutex;
   std::mutex m_stateMachineMutex;
