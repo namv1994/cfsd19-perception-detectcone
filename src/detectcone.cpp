@@ -115,6 +115,7 @@ void DetectCone::receiveCombinedMessage(cluon::data::TimeStamp currentFrameTime,
     it++;
   }
   if(cones.cols()>0 && m_recievedFirstImg){
+    std::cout << "received " << cones.cols() << " cones" << std::endl;
     SendCollectedCones(cones);
   }
 }
@@ -637,6 +638,7 @@ void DetectCone::annotate(cv::Mat img, int maxIndex, cv::Point position, int rad
 
 void DetectCone::forwardDetectionORB(cv::Mat img){
   //Given RoI by ORB detector and detected by CNN
+  cluon::data::TimeStamp timestamp = cluon::time::now();
   // std::lock_guard<std::mutex> lockStateMachine(m_stateMachineMutex);
   if(!m_runningState)
   {
@@ -676,7 +678,7 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
     return;
   filterKeypoints(point3Ds);
   for(size_t i = 0; i < point3Ds.size(); i++){
-    int radius = xyz2xy(Q, point3Ds[i], point2D, 0.4f);
+    int radius = xyz2xy(Q, point3Ds[i], point2D, 0.3f);
     int x = int(point2D.x);
     int y = int(point2D.y);
 
@@ -782,12 +784,15 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
   cv::line(img, cv::Point(0,rowB), cv::Point(m_width,rowB), cv::Scalar(0,0,255), 2);
 
   cv::imwrite("/opt/"+m_folderName+"/results/"+std::to_string(m_currentFrame++)+".png", img);
+  double timeDiff = (cluon::time::toMicroseconds(cluon::time::now()) - cluon::time::toMicroseconds(timestamp))/1000000;
+  std::cout << "forward detection time: " << timeDiff << "s" << std::endl;
   std::vector<Cone> conesToSend = MatchCones(cones);
   SendMatchedContainer(conesToSend);
 }
 
 std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& lidarCones, int64_t minValue){
   //Given RoI in 3D world, project back to the camera frame and then detect
+  cluon::data::TimeStamp timestamp = cluon::time::now();
   cv::Mat disp, Q, XYZ, imgSource;
   reconstruction(img, Q, disp, img, XYZ);
   std::vector<tiny_dnn::tensor_t> inputs;
@@ -800,7 +805,7 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
   cv::Mat imgRoI = img.rowRange(rowT, rowB);
   img.copyTo(imgSource);
 
-  cv::Ptr<cv::ORB> detector = cv::ORB::create();
+  cv::Ptr<cv::ORB> detector = cv::ORB::create(100);
   detector->setFastThreshold(m_fastThreshold);
   detector->setPatchSize(m_orbPatchSize);
   std::vector<cv::KeyPoint> keypoints;
@@ -809,7 +814,6 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
     return localCones;
   }
 
-  std::cout << "received " << lidarCones.cols() << " cones" << std::endl;
   for(int i = 0; i < lidarCones.cols(); i++){
     cv::Point2f point2D;
     Cone cone = Cone(lidarCones(0,i),lidarCones(1,i),lidarCones(2,i));
@@ -937,6 +941,8 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
   // cv::line(img, cv::Point(0,rowB), cv::Point(m_width,rowB), cv::Scalar(0,0,255), 2);
 
   cv::imwrite("/opt/"+m_folderName+"/results/"+std::to_string(m_currentFrame++)+"_"+std::to_string(minValue)+".png", img);
+  double timeDiff = (cluon::time::toMicroseconds(cluon::time::now()) - cluon::time::toMicroseconds(timestamp))/1000000;
+  std::cout << "backward detection time: " << timeDiff << "s" << std::endl;
   return localCones;
 }
 

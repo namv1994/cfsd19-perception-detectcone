@@ -67,7 +67,7 @@ services:
         command: "/opt/od4/bin/odcockpit --cid=${CID}" 
 
     cfsd18-perception-detectcone:
-        image: "chalmersfsd/cfsd18-perception-detectcone:pre-release-9ecd659"
+        image: "detectcone:test"
         network_mode: "host"
         ipc: host
         working_dir: /opt
@@ -75,7 +75,7 @@ services:
           - DISPLAY=$DISPLAY
         volumes:
          - /tmp/.X11-unix:/tmp/.X11-unix
-         - .:/opt
+         - /media/weiming/46823A5A823A4F25/data/2:/opt
          - /media/weiming/Ny volym/ubuntu-project/cone-detection/models/model:/opt/model
          - "/dev/shm:/dev/shm"
         # depends_on:
@@ -86,7 +86,7 @@ services:
             hard: 5600000
         command: "cfsd18-perception-detectcone --cid=${CID} --name=cam0 --width=2560 --height=720 --bpp=24 --threshold=0.8 
         --timeDiffMilliseconds=40 --separationTimeMs=20 --checkLidarMilliseconds=1000 --senderStamp=118 --attentionSenderStamp=116 
-        --offline=1 --annotate=0 --stateMachineId=1401 --readyStateMachine=1 --forwardDetection=0 --fastThreshold=7 --orbPatchSize=15
+        --offline=1 --annotate=1 --stateMachineId=1401 --readyStateMachine=1 --forwardDetection=0 --fastThreshold=20 --orbPatchSize=31
         --matchDistance=1.5"
 
     # proxy-camera:

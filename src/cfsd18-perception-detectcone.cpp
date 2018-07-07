@@ -20,6 +20,12 @@
 
 int32_t main(int32_t argc, char **argv) {
     int32_t retCode{0};
+    // DIR *dir = opendir("model");
+    // if(!dir)
+    // {
+    // printf("model not exist!\n");
+    // return 0;
+    // }
     std::map<std::string, std::string> commandlineArguments = cluon::getCommandlineArguments(argc, argv);
     if (commandlineArguments.count("cid")<1) {
         std::cerr << argv[0] << " is a detectcone module for the CFSD18 project." << std::endl;
@@ -67,17 +73,44 @@ int32_t main(int32_t argc, char **argv) {
         od4.dataTrigger(opendlv::logic::perception::ObjectDistance::ID(),envelopeRecieved);
         od4.dataTrigger(opendlv::proxy::SwitchStateReading::ID(),stateMachineStatusEnvelope);
 
-        cluon::data::TimeStamp imgTimestamp = cluon::time::now();
-        int64_t folderId = cluon::time::toMicroseconds(imgTimestamp);
-        std::string command = "mkdir /opt/"+std::to_string(folderId);
+        std::stringstream currentDateTime;
+        // current date/time based on current system
+        time_t ttNow = time(0);
+        tm * ptmNow;
+        ptmNow = localtime(&ttNow);
+        currentDateTime << 1900 + ptmNow->tm_year;
+        //month
+        if (ptmNow->tm_mon < 9)
+            //Fill in the leading 0 if less than 10
+            currentDateTime << "0" << 1 + ptmNow->tm_mon;
+        else
+            currentDateTime << (1 + ptmNow->tm_mon);
+        //day
+        if (ptmNow->tm_mday < 10)
+            currentDateTime << "0" << ptmNow->tm_mday;
+        else
+            currentDateTime <<  ptmNow->tm_mday;
+        //hour
+        if (ptmNow->tm_hour < 10)
+            currentDateTime << "0" << ptmNow->tm_hour;
+        else
+            currentDateTime << ptmNow->tm_hour;
+        //min
+        if (ptmNow->tm_min < 10)
+            currentDateTime << "0" << ptmNow->tm_min;
+        else
+            currentDateTime << ptmNow->tm_min;
+        std::string folderName = currentDateTime.str();
+
+        std::string command = "mkdir /opt/"+folderName;
         system(command.c_str());
-        command = "mkdir /opt/"+std::to_string(folderId)+"/timestamp/";
+        command = "mkdir /opt/"+folderName+"/timestamp/";
         system(command.c_str());
-        command = "mkdir /opt/"+std::to_string(folderId)+"/images/";
+        command = "mkdir /opt/"+folderName+"/images/";
         system(command.c_str());
-        command = "mkdir /opt/"+std::to_string(folderId)+"/results/";
+        command = "mkdir /opt/"+folderName+"/results/";
         system(command.c_str());
-        detectcone.getFolderName(std::to_string(folderId));
+        detectcone.getFolderName(folderName);
 
         if(offline){
             detectcone.getTimeStamp("/opt/timestamp/timestamps.txt");
@@ -98,8 +131,8 @@ int32_t main(int32_t argc, char **argv) {
                 (void)ID;
                 (void)SIZE;
 
-                std::string filepathTimestamp = "/opt/"+std::to_string(folderId)+"/timestamp/timestamps.txt";
-                std::string imgPath = "/opt/"+std::to_string(folderId)+"/images/";
+                std::string filepathTimestamp = "/opt/"+folderName+"/timestamp/timestamps.txt";
+                std::string imgPath = "/opt/"+folderName+"/images/";
                 std::ofstream file;
                 file.open(filepathTimestamp.c_str());
                 size_t frameCounter = 0;
@@ -128,7 +161,7 @@ int32_t main(int32_t argc, char **argv) {
                         image->imageDataOrigin = image->imageData;
                         cv::Mat img = cv::cvarrToMat(image); 
 
-                        imgTimestamp = cluon::time::now();
+                        cluon::data::TimeStamp imgTimestamp = cluon::time::now();
                         sharedMemory->unlock();
                         cv::waitKey(1);
 

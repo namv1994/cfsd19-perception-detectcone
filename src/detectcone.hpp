@@ -32,6 +32,7 @@
 #include <string>
 #include <sstream>
 #include <dirent.h>
+#include <ctime>
 
 #include "cluon-complete.hpp"
 #include "opendlv-standard-message-set.hpp"
