@@ -467,7 +467,9 @@ cv::Point DetectCone::pointFilter(std::vector<std::pair<cv::Point,float>> positi
       } 
     } 
   } 
-  size_t size2 = std::max(size,5);
+  size_t size2 = size;
+  if(size > 5)
+    size2 = 5;
   cv::Point result{0,0};
   for(size_t i = 0; i < size2; i++){
     result += positions[i].first;
