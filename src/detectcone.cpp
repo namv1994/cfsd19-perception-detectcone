@@ -796,8 +796,10 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
 
   cv::line(img, cv::Point(0,rowT), cv::Point(m_width,rowT), cv::Scalar(0,0,255), 2);
   cv::line(img, cv::Point(0,rowB), cv::Point(m_width,rowB), cv::Scalar(0,0,255), 2);
-
-  cv::imwrite("/opt/"+m_folderName+"/results/"+std::to_string(m_currentFrame++)+".png", img);
+  std::string saveString = "/opt/"+m_folderName+"/results/"+std::to_string(m_currentFrame++)+".png";
+  std::thread imWriteThread(&DetectCone::saveImages,this,saveString,img);
+  imWriteThread.detach();
+  //cv::imwrite("/opt/"+m_folderName+"/results/"+std::to_string(m_currentFrame++)+".png", img);
   double timeDiff = (cluon::time::toMicroseconds(cluon::time::now()) - cluon::time::toMicroseconds(timestamp))/1000;
   std::cout << "forward detection time: " << timeDiff << "ms" << std::endl;
   std::vector<Cone> conesToSend = MatchCones(cones);
@@ -953,8 +955,10 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
 
   // cv::line(img, cv::Point(0,rowT), cv::Point(m_width,rowT), cv::Scalar(0,0,255), 2);
   // cv::line(img, cv::Point(0,rowB), cv::Point(m_width,rowB), cv::Scalar(0,0,255), 2);
-
-  cv::imwrite("/opt/"+m_folderName+"/results/"+std::to_string(m_currentFrame++)+"_"+std::to_string(minValue)+".png", img);
+  std::string saveString = "/opt/"+m_folderName+"/results/"+std::to_string(m_currentFrame++)+"_"+std::to_string(minValue)+".png";
+  std::thread imWriteThread(&DetectCone::saveImages,this,saveString,img);
+  imWriteThread.detach();
+  //cv::imwrite("/opt/"+m_folderName+"/results/"+std::to_string(m_currentFrame++)+"_"+std::to_string(minValue)+".png", img);
   double timeDiff = (cluon::time::toMicroseconds(cluon::time::now()) - cluon::time::toMicroseconds(timestamp))/1000;
   std::cout << "backward detection time: " << timeDiff << "ms" << std::endl;
   return localCones;
@@ -1245,4 +1249,8 @@ void DetectCone::SendMatchedContainer(std::vector<Cone> cones)
   cluon::data::TimeStamp endTime = cluon::time::now();
   if(m_verbose)
     std::cout << "Delta in microseconds (final)" << cluon::time::deltaInMicroseconds(endTime,m_start) << std::endl;
+}
+
+void DetectCone::saveImages(std::string saveString, cv::Mat img){
+  cv::imwrite(saveString,img);
 }

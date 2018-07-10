@@ -65,6 +65,7 @@ class DetectCone {
   void getTimeStamp(const std::string);
   void setStateMachineStatus(cluon::data::Envelope data); 
   void getFolderName(const std::string folderName);
+  void saveImages(std::string saveString, cv::Mat img);
 
  private:
   void setUp(std::map<std::string, std::string> commandlineArguments);
