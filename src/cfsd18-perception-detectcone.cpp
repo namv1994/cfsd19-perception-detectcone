@@ -78,18 +78,18 @@ int32_t main(int32_t argc, char **argv) {
         time_t ttNow = time(0);
         tm * ptmNow;
         ptmNow = localtime(&ttNow);
-        currentDateTime << 1900 + ptmNow->tm_year;
+        currentDateTime << 1900 + ptmNow->tm_year << "-";
         //month
         if (ptmNow->tm_mon < 9)
             //Fill in the leading 0 if less than 10
-            currentDateTime << "0" << 1 + ptmNow->tm_mon;
+            currentDateTime << "0" << 1 + ptmNow->tm_mon << "-";
         else
-            currentDateTime << (1 + ptmNow->tm_mon);
+            currentDateTime << (1 + ptmNow->tm_mon) << "-";
         //day
         if (ptmNow->tm_mday < 10)
-            currentDateTime << "0" << ptmNow->tm_mday;
+            currentDateTime << "0" << ptmNow->tm_mday << "_";
         else
-            currentDateTime <<  ptmNow->tm_mday;
+            currentDateTime <<  ptmNow->tm_mday << "_";
         //hour
         if (ptmNow->tm_hour < 10)
             currentDateTime << "0" << ptmNow->tm_hour;
@@ -100,6 +100,10 @@ int32_t main(int32_t argc, char **argv) {
             currentDateTime << "0" << ptmNow->tm_min;
         else
             currentDateTime << ptmNow->tm_min;
+        if (ptmNow->tm_sec < 10)
+            currentDateTime << "0" << ptmNow->tm_sec;
+        else
+            currentDateTime << ptmNow->tm_sec;
         std::string folderName = currentDateTime.str();
 
         std::string command = "mkdir /opt/"+folderName;
@@ -186,7 +190,8 @@ int32_t main(int32_t argc, char **argv) {
                             int64_t ts = cluon::time::toMicroseconds(imgTimestamp);
                             file << std::setprecision(19) << ts << std::endl;
                             std::string saveString = imgPath + std::to_string(frameCounter++) + ".png";
-                            cv::imwrite( saveString, img);
+                            std::thread imWriteThread(&DetectCone::saveImages,&detectcone,saveString,img);
+                            imWriteThread.detach();
                         }else{
                             runningState = detectcone.getRunningState();
                         }                       

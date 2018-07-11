@@ -33,6 +33,7 @@
 #include <sstream>
 #include <dirent.h>
 #include <ctime>
+#include <algorithm> 
 
 #include "cluon-complete.hpp"
 #include "opendlv-standard-message-set.hpp"
@@ -65,6 +66,7 @@ class DetectCone {
   void getTimeStamp(const std::string);
   void setStateMachineStatus(cluon::data::Envelope data); 
   void getFolderName(const std::string folderName);
+  void saveImages(std::string saveString, cv::Mat img);
 
  private:
   void setUp(std::map<std::string, std::string> commandlineArguments);
