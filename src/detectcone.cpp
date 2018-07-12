@@ -793,8 +793,9 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
   cv::line(img, cv::Point(0,rowB), cv::Point(m_width,rowB), cv::Scalar(0,0,255), 2);
 
   std::string saveString = "/opt/"+m_folderName+"/results/"+std::to_string(m_currentFrame++)+".png";
-  std::thread imWriteThread(&DetectCone::saveImages,this,saveString,img);
-  imWriteThread.detach();
+  // std::thread imWriteThread(&DetectCone::saveImages,this,saveString,img);
+  // imWriteThread.detach();
+  cv::imwrite(saveString, img);
   double timeDiff = (cluon::time::toMicroseconds(cluon::time::now()) - cluon::time::toMicroseconds(timestamp))/1000;
   std::cout << "forward detection time: " << timeDiff << "ms" << std::endl;
   std::vector<Cone> conesToSend = MatchCones(cones);
@@ -873,7 +874,7 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
     cv::Point2f lidarPoint2D, cameraPoint2D;
     Cone cone = Cone(lidarCones(0,i),lidarCones(1,i),lidarCones(2,i));
     cv::Point3f lidarCone(float(m_xShift+lidarCones(0,i)), float(m_yShift+lidarCones(2,i)), float(m_zShift+lidarCones(1,i)));
-    int radius = xyz2xy(Q, lidarCone, lidarPoint2D, 0.4f);
+    int radius = xyz2xy(Q, lidarCone, lidarPoint2D, 0.5f);
     cv::Point2f point2D = lidarPoint2D;
     int x = int(point2D.x);
     int y = int(point2D.y);
@@ -886,35 +887,39 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
     float minDistance = 2;
     for(size_t j = 0; j < point3Ds.size(); j++){
       int radius_tmp = xyz2xy(Q, point3Ds[j], cameraPoint2D, 0.3f);
-      // if(cameraPoint2D.x >= roi.x && cameraPoint2D.x <= roi.x+roi.width && cameraPoint2D.y >= roi.y && cameraPoint2D.y <= roi.y+roi.height){
-      float distance = static_cast<float>(std::pow(std::pow(point3Ds[j].x-lidarCone.x,2)+std::pow(point3Ds[j].y-lidarCone.y,2)+std::pow(point3Ds[j].z-lidarCone.z,2),0.5));
-      if(distance<minDistance){
-        flag = true;
-        minDistance = distance;
-        radius = radius_tmp;
-        point2D = cameraPoint2D;
+      if(cameraPoint2D.x >= roi.x && cameraPoint2D.x <= roi.x+roi.width && cameraPoint2D.y >= roi.y && cameraPoint2D.y <= roi.y+roi.height){
+        float distance = static_cast<float>(std::pow(std::pow(point3Ds[j].x-lidarCone.x,2)+std::pow(point3Ds[j].y-lidarCone.y,2)+std::pow(point3Ds[j].z-lidarCone.z,2),0.5));
+        if(distance<minDistance){
+          flag = true;
+          minDistance = distance;
+          radius = radius_tmp;
+          point2D = cameraPoint2D;
+        }
       }
-      // }
     }
-    if(flag == true){
+    if(flag == false){
+      cone.m_label = 10;
+    }
+    else{
       x = int(point2D.x);
       y = int(point2D.y);
       roi.x = std::max(x - radius, 0);
       roi.y = std::max(y - radius, 0);
       roi.width = std::min(std::max(x + radius,0), img.cols) - roi.x;
       roi.height = std::min(std::max(y + radius,0), img.rows) - roi.y;
-    }
-    if (0 >= roi.x || 0 >= roi.width || roi.x + roi.width > img.cols || 0 >= roi.y || 0 >= roi.height || roi.y + roi.height >= img.rows || radius <= 0){
-      cone.m_label = 10; 
-    }
-    else{
-      cv::Mat patchImg = imgSource(roi);
-      tiny_dnn::vec_t data;
-      convertImage(patchImg, m_patchSize, m_patchSize, data);
-      inputs.push_back({data});
-      cone.m_label = 0;
-      verifiedIndex.push_back(i);
-      porperty.push_back(cv::Vec3i(x,y,radius));
+    
+      if (0 >= roi.x || 0 >= roi.width || roi.x + roi.width > img.cols || 0 >= roi.y || 0 >= roi.height || roi.y + roi.height >= img.rows || radius <= 0){
+        cone.m_label = 10; 
+      }
+      else{
+        cv::Mat patchImg = imgSource(roi);
+        tiny_dnn::vec_t data;
+        convertImage(patchImg, m_patchSize, m_patchSize, data);
+        inputs.push_back({data});
+        cone.m_label = 0;
+        verifiedIndex.push_back(i);
+        porperty.push_back(cv::Vec3i(x,y,radius));
+      }
     }
     localCones.push_back(cone);
   }
@@ -994,8 +999,9 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
   cv::hconcat(img,result,outImg);
 
   std::string saveString = "/opt/"+m_folderName+"/results/"+std::to_string(m_currentFrame++)+"_"+std::to_string(minValue)+".png";
-  std::thread imWriteThread(&DetectCone::saveImages,this,saveString,outImg);
-  imWriteThread.detach();
+  // std::thread imWriteThread(&DetectCone::saveImages,this,saveString,outImg);
+  // imWriteThread.detach();
+  cv::imwrite(saveString, outImg);
 
   double timeDiff = (cluon::time::toMicroseconds(cluon::time::now()) - cluon::time::toMicroseconds(timestamp))/1000;
   std::cout << "backward detection time: " << timeDiff << "ms" << std::endl;

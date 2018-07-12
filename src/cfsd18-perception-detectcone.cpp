@@ -190,8 +190,9 @@ int32_t main(int32_t argc, char **argv) {
                             int64_t ts = cluon::time::toMicroseconds(imgTimestamp);
                             file << std::setprecision(19) << ts << std::endl;
                             std::string saveString = imgPath + std::to_string(frameCounter++) + ".png";
-                            std::thread imWriteThread(&DetectCone::saveImages,&detectcone,saveString,img);
-                            imWriteThread.detach();
+                            // std::thread imWriteThread(&DetectCone::saveImages,&detectcone,saveString,img);
+                            // imWriteThread.detach();
+                            cv::imwrite(saveString, img);
                         }else{
                             runningState = detectcone.getRunningState();
                         }                       
