@@ -34,7 +34,7 @@ services:
         - DISPLAY=$DISPLAY
         volumes:
         - /tmp/.X11-unix:/tmp/.X11-unix
-        - /media/weiming/46823A5A823A4F25/data/2018-07-10_083635:/opt/recordings
+        - /media/weiming/46823A5A823A4F25/data/2018-07-10_101334:/opt/recordings
         ipc: host
         user: odv
         depends_on:
@@ -50,7 +50,7 @@ services:
           - DISPLAY=$DISPLAY
         volumes:
          - /tmp/.X11-unix:/tmp/.X11-unix
-         - /media/weiming/46823A5A823A4F25/data/2018-07-10_083635:/opt
+         - /media/weiming/46823A5A823A4F25/data/2018-07-10_101334:/opt
          - /media/weiming/Ny volym/ubuntu-project/cone-detection/models/model:/opt/model
          - "/dev/shm:/dev/shm"
         # depends_on:

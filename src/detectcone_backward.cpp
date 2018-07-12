@@ -60,7 +60,6 @@ DetectCone::DetectCone(std::map<std::string, std::string> commandlineArguments, 
 , m_matchDistance(1.5)
 , m_orbPatchSize(31)
 , m_folderName()
-, m_maxZ(8.1234f)
 {
   m_diffVec = 0;
   m_pointMatched = Eigen::MatrixXd::Zero(4,1);
@@ -591,7 +590,7 @@ void DetectCone::filterKeypoints(std::vector<cv::Point3f>& point3Ds){
           point3D = data[j].pt;
         }
       }
-      if(std::isnan(point3D.x)||std::isnan(point3D.y)||std::isnan(point3D.z))
+      if(std::isnan(point3D.x)||std::isnan(point3D.y)||std::isnan(point3D.y))
         continue;
       point3Ds.push_back(point3D);
     }
@@ -685,7 +684,7 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
   for(size_t i = 0; i < keypoints.size(); i++){
     cv::Point position(int(keypoints[i].pt.x), int(keypoints[i].pt.y)+rowT);
     cv::Point3f point3D = XYZ.at<cv::Point3f>(position);
-    if(point3D.y>0.6 && point3D.y<0.9 && point3D.z > 0 && point3D.z < m_maxZ){
+    if(point3D.y>0.6 && point3D.y<0.9 && point3D.z > 0){
       point3Ds.push_back(point3D);
       positions.push_back(position);
     }
@@ -887,13 +886,13 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
     for(size_t j = 0; j < point3Ds.size(); j++){
       int radius_tmp = xyz2xy(Q, point3Ds[j], cameraPoint2D, 0.3f);
       // if(cameraPoint2D.x >= roi.x && cameraPoint2D.x <= roi.x+roi.width && cameraPoint2D.y >= roi.y && cameraPoint2D.y <= roi.y+roi.height){
-      float distance = static_cast<float>(std::pow(std::pow(point3Ds[j].x-lidarCone.x,2)+std::pow(point3Ds[j].y-lidarCone.y,2)+std::pow(point3Ds[j].z-lidarCone.z,2),0.5));
-      if(distance<minDistance){
-        flag = true;
-        minDistance = distance;
-        radius = radius_tmp;
-        point2D = cameraPoint2D;
-      }
+        float distance = static_cast<float>(std::pow(std::pow(point3Ds[j].x-lidarCone.x,2)+std::pow(point3Ds[j].y-lidarCone.y,2)+std::pow(std::min(8.1234f,point3Ds[j].z)-lidarCone.z,2),0.5));
+        if(distance<minDistance){
+          flag = true;
+          minDistance = distance;
+          radius = radius_tmp;
+          point2D = cameraPoint2D;
+        }
       // }
     }
     if(flag == true){
@@ -971,32 +970,32 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
   colors.push_back(cv::Scalar(0,255,255));
   colors.push_back(cv::Scalar(0,165,255));
   colors.push_back(cv::Scalar(0,0,255));
-  int resultWidth = m_height;
-  int resultHeight = m_height;
-  cv::Mat result = cv::Mat::zeros(resultWidth,resultHeight,CV_8UC3);
-  double resultResize = 10;
+  int resultWidth = 500;
+  int resultHeight = 500;
+  cv::Mat result = cv::Mat::zeros(500,500,CV_8UC3);
+  double resultResize = 20;
   for(size_t i = 0; i < localCones.size(); i++){
     int xt = int((localCones[i].getX() + m_xShift) * float(resultResize) + resultWidth/2);
     int yt = int((localCones[i].getY() + m_zShift) * float(resultResize) + resultWidth/2);
     if (xt >= 0 && xt <= resultWidth && yt >= 0 && yt <= resultHeight){
       // std::cout << "merge: " << xt << " " << yt << std::endl;
-      cv::circle(result, cv::Point (xt,yt), 2, colors[localCones[i].getLabel()], -1);
+      cv::circle(result, cv::Point (xt,yt), 3, colors[localCones[i].getLabel()], -1);
     }
   }
+  cv::flip(result, result, 0);
+  std::string saveStrings = "/opt/"+m_folderName+"/results/"+std::to_string(m_currentFrame++)+"_"+std::to_string(minValue)+"_3d.jpg";
+  cv::imwrite(saveStrings, result);
 
   for(size_t i = 0; i < positions.size(); i++){
     cv::circle(img, positions[i], 1, cv::Scalar (255,255,255), -1);
   }
-  cv::line(img, cv::Point(0,rowT), cv::Point(m_width,rowT), cv::Scalar(0,0,255), 2);
-  cv::line(img, cv::Point(0,rowB), cv::Point(m_width,rowB), cv::Scalar(0,0,255), 2);
-  cv::Mat outImg;
-  cv::flip(result, result, 0);
-  cv::hconcat(img,result,outImg);
 
-  std::string saveString = "/opt/"+m_folderName+"/results/"+std::to_string(m_currentFrame++)+"_"+std::to_string(minValue)+".png";
-  std::thread imWriteThread(&DetectCone::saveImages,this,saveString,outImg);
-  imWriteThread.detach();
+  // cv::line(img, cv::Point(0,rowT), cv::Point(m_width,rowT), cv::Scalar(0,0,255), 2);
+  // cv::line(img, cv::Point(0,rowB), cv::Point(m_width,rowB), cv::Scalar(0,0,255), 2);
 
+  // std::string saveString = "/opt/"+m_folderName+"/results/"+std::to_string(m_currentFrame++)+"_"+std::to_string(minValue)+".png";
+  // std::thread imWriteThread(&DetectCone::saveImages,this,saveString,img);
+  // imWriteThread.detach();
   double timeDiff = (cluon::time::toMicroseconds(cluon::time::now()) - cluon::time::toMicroseconds(timestamp))/1000;
   std::cout << "backward detection time: " << timeDiff << "ms" << std::endl;
   return localCones;
