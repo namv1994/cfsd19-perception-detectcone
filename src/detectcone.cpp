@@ -32,7 +32,6 @@ DetectCone::DetectCone(std::map<std::string, std::string> commandlineArguments, 
 , m_coneCollector()
 , m_lastObjectId()
 , m_newFrame(true)
-// , m_processing(false)
 , m_coneMutex()
 , m_imgMutex()
 , m_stateMachineMutex()
@@ -54,8 +53,8 @@ DetectCone::DetectCone(std::map<std::string, std::string> commandlineArguments, 
 , m_width(672)
 , m_height(376)
 , m_xShift(0)
-, m_yShift(0.833)//0.833
-, m_zShift(1.872)//1.872
+, m_yShift(0.833)
+, m_zShift(1.872)
 , m_fastThreshold(20)
 , m_matchDistance(1.5)
 , m_orbPatchSize(31)
@@ -116,7 +115,8 @@ void DetectCone::receiveCombinedMessage(cluon::data::TimeStamp currentFrameTime,
     it++;
   }
   if(cones.cols()>0 && m_recievedFirstImg){
-    std::cout << "received " << cones.cols() << " cones" << std::endl;
+    if(m_verbose)
+      std::cout << "received " << cones.cols() << " cones" << std::endl;
     SendCollectedCones(cones);
   }
 }
@@ -136,8 +136,6 @@ void DetectCone::nextContainer(cluon::data::Envelope data)
       newFrameDist = m_newFrame;
       m_newFrame = false;
     }
-    //Check last timestamp if they are from same message
-    //std::cout << "Message Recieved " << std::endl;
     if (newFrameDist){
        //std::thread coneCollector(&DetectCone::initializeCollection, this);
        //coneCollector.detach();
@@ -157,8 +155,6 @@ void DetectCone::nextContainer(cluon::data::Envelope data)
       newFrameDist = m_newFrame;
       m_newFrame = false;
     }
-    //Check last timestamp if they are from same message
-    //std::cout << "Message Recieved " << std::endl;
     if (newFrameDist){
        //std::thread coneCollector(&DetectCone::initializeCollection, this);
        //coneCollector.detach();
@@ -176,7 +172,7 @@ void DetectCone::setStateMachineStatus(cluon::data::Envelope data){
 }
 
 bool DetectCone::getReadyState(){
-  if(m_count>50){
+  if(m_count>100){
     cv::imwrite("/opt/"+m_folderName+"/results/"+std::to_string(m_count)+"_ready.png", m_img);
     return 1;
   }
@@ -230,15 +226,9 @@ void DetectCone::checkLidarState(){
       if(m_verbose)
         std::cout << "currentFrame: " << m_currentFrame << std::endl;
       m_lidarIsWorking = false;
-      // if(m_forwardDetection && m_currentFrame < m_timeStamps.size()){
       if(m_forwardDetection){
         m_img = cv::imread("/opt/images/"+std::to_string(m_currentFrame)+".png");
         forwardDetectionORB(m_img);
-        // if(!m_processing){
-        //   m_processing = true;
-        //   forwardDetectionORB(m_img);
-        //   m_processing = false;
-        // }
       }
     }
   }
@@ -255,7 +245,6 @@ void DetectCone::checkLidarState(){
     }
     else{
       m_lidarIsWorking = true;
-      // std::cout << "Lidar is working!" << std::endl;
     }
   }
 }
@@ -268,33 +257,10 @@ void DetectCone::blockMatching(cv::Mat& disp, cv::Mat imgL, cv::Mat imgR){
 
   cv::Ptr<cv::StereoBM> sbmL = cv::StereoBM::create(); 
   sbmL->setBlockSize(19);
-  // int numberOfDisparities = ((imgL.cols / 8) + 15) & -16;
-  sbmL->setNumDisparities(32);//32
+  sbmL->setNumDisparities(32);
   sbmL->compute(grayL, grayR, dispL);
 
   disp = dispL/16;
-
-  // int numberOfDisparities = ((imgL.cols / 8) + 15) & -16;
-  // cv::Ptr<cv::StereoSGBM> sgbm = cv::StereoSGBM::create(0, 16, 3);
-  // sgbm->setPreFilterCap(32);
-  // int SADWindowSize = 9;
-  // int sgbmWinSize = SADWindowSize > 0 ? SADWindowSize : 3;
-  // sgbm->setBlockSize(sgbmWinSize);
-  // int cn = imgL.channels();
-  // sgbm->setP1(8 * cn*sgbmWinSize*sgbmWinSize);
-  // sgbm->setP2(32 * cn*sgbmWinSize*sgbmWinSize);
-  // sgbm->setMinDisparity(0);
-  // sgbm->setNumDisparities(numberOfDisparities);
-  // sgbm->setUniquenessRatio(10);
-  // sgbm->setSpeckleWindowSize(100);
-  // sgbm->setSpeckleRange(32);
-  // sgbm->setDisp12MaxDiff(1);
-  // sgbm->setMode(cv::StereoSGBM::MODE_SGBM);
-  // sgbm->compute(imgL, imgR, disp);
-  // sgbm->setMinDisparity(-numberOfDisparities);
-  // sgbm->setNumDisparities(numberOfDisparities);
-  // sgbm->compute(imgR, imgL, disp);
-  // disp = abs(disp)/16;
 }
 
 void DetectCone::reconstruction(cv::Mat img, cv::Mat& Q, cv::Mat& disp, cv::Mat& rectified, cv::Mat& XYZ){
@@ -310,17 +276,6 @@ void DetectCone::reconstruction(cv::Mat img, cv::Mat& Q, cv::Mat& disp, cv::Mat&
   cv::Mat distRight = (cv::Mat_<double>(5, 1) << -0.174209, 0.026726, 0, 0, 0);
   cv::Mat rodrigues = (cv::Mat_<double>(3, 1) << -0.0132397, 0.021005, -0.00121284);
 
-  // cv::Mat mtxLeft = (cv::Mat_<double>(3, 3) <<
-  //   699.783, 0, 637.704,
-  //   0, 699.783, 360.875,
-  //   0, 0, 1);
-  // cv::Mat distLeft = (cv::Mat_<double>(5, 1) << -0.173042, 0.0258831, 0, 0, 0);
-  // cv::Mat mtxRight = (cv::Mat_<double>(3, 3) <<
-  //   700.225, 0, 660.759,
-  //   0, 700.225, 364.782,
-  //   0, 0, 1);
-  // cv::Mat distRight = (cv::Mat_<double>(5, 1) << -0.174209, 0.026726, 0, 0, 0);
-  // cv::Mat rodrigues = (cv::Mat_<double>(3, 1) << -0.0132397, 0.021005, -0.00121284);
   cv::Mat R;
   cv::Rodrigues(rodrigues, R);
   cv::Mat T = (cv::Mat_<double>(3, 1) << -0.12, 0, 0);
@@ -375,12 +330,10 @@ void DetectCone::adjustLighting(cv::Mat img, cv::Mat& outImg){
 
 void DetectCone::CNN(const std::string& dictionary, tiny_dnn::network<tiny_dnn::sequential>& model) {
   using conv    = tiny_dnn::convolutional_layer;
-  // using pool    = tiny_dnn::max_pooling_layer;
   using fc      = tiny_dnn::fully_connected_layer;
   using tanh    = tiny_dnn::tanh_layer;
   using relu    = tiny_dnn::relu_layer;
   using softmax = tiny_dnn::softmax_layer;
-  // using dropout = tiny_dnn::dropout_layer;
 
   tiny_dnn::core::backend_t backend_type = tiny_dnn::core::default_engine();
 
@@ -391,7 +344,6 @@ void DetectCone::CNN(const std::string& dictionary, tiny_dnn::network<tiny_dnn::
      << fc(3 * 3 * 32, 128, true, backend_type) << relu()  
      << fc(128, 5, true, backend_type) << softmax(5); 
 
-  // load nets
   std::ifstream ifs(dictionary.c_str());
   if (!ifs.good()){
     if(m_verbose)
@@ -446,10 +398,10 @@ cv::Point3f DetectCone::median(std::vector<cv::Point3f> vec3) {
 
   for (size_t i = 0; i < 3; i++){
     std::sort(vec[i].begin(), vec[i].end());
-    if (size % 2 == 0) { // even
+    if (size % 2 == 0) {
       tvecan[i] = (vec[i][size/2-1] + vec[i][size/2])/2;
     }
-    else //odd
+    else
       tvecan[i] = vec[i][size/2];
   }
     
@@ -468,7 +420,6 @@ cv::Point DetectCone::pointFilter(std::vector<std::pair<cv::Point,float>> positi
       } 
     } 
   } 
-
   size_t size2 = size;
   if(size > 5)
     size2 = 5;
@@ -479,7 +430,6 @@ cv::Point DetectCone::pointFilter(std::vector<std::pair<cv::Point,float>> positi
   result.x /= size2;
   result.y /= size2;
   return result;
-  // return positions[0].first;
 }
 
 cv::Point DetectCone::mean(std::vector<cv::Point> vec) {
@@ -512,10 +462,10 @@ void DetectCone::gather_points(
   std::vector<float>& vecDist
   )
 {  
-  double radius = 0.8;
+  double radius = 1;
   unsigned int max_neighbours = 100;
   cv::flann::KDTreeIndexParams indexParams(2);
-  cv::flann::Index kdtree(source, indexParams); 
+  cv::flann::Index kdtree(source, indexParams);
   cv::flann::SearchParams params(1024);
   kdtree.radiusSearch(vecQuery, vecIndex, vecDist, radius, max_neighbours, params);
 }
@@ -591,7 +541,7 @@ void DetectCone::filterKeypoints(std::vector<cv::Point3f>& point3Ds){
           point3D = data[j].pt;
         }
       }
-      if(std::isnan(point3D.x)||std::isnan(point3D.y)||std::isnan(point3D.z))
+      if(std::isnan(point3D.x)||std::isnan(point3D.y)||std::isnan(point3D.y))
         continue;
       point3Ds.push_back(point3D);
     }
@@ -618,7 +568,6 @@ int DetectCone::countFiles(const char* path){
   DIR *dir = opendir(path);
   if(!dir)
   {
-    // printf("opendir() failed! Does it exist?\n");
     return -1;
   }
 
@@ -755,12 +704,9 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
         annotate(imgSource, maxIndex, position, radius);
       }
 
-      //Eigen::MatrixXd cone = Eigen::MatrixXd::Zero(4,1);
       cones[i].setX(point3D.x-m_xShift);
       cones[i].setY(point3D.z-m_zShift);
       cones[i].setZ(point3D.y-m_yShift);
-      //cone << point3D.x-m_xShift, point3D.z-m_zShift, point3D.y-m_yShift, maxIndex;
-      // cameraCones.col(coneCount++) = cone;
       if (labelName == "background"){
         if(m_verbose){
           std::cout << "No cone detected" << std::endl;
@@ -793,11 +739,11 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
   cv::line(img, cv::Point(0,rowB), cv::Point(m_width,rowB), cv::Scalar(0,0,255), 2);
 
   std::string saveString = "/opt/"+m_folderName+"/results/"+std::to_string(m_currentFrame++)+".png";
-  // std::thread imWriteThread(&DetectCone::saveImages,this,saveString,img);
-  // imWriteThread.detach();
-  cv::imwrite(saveString, img);
+  std::thread imWriteThread(&DetectCone::saveImages,this,saveString,img);
+  imWriteThread.detach();
   double timeDiff = (cluon::time::toMicroseconds(cluon::time::now()) - cluon::time::toMicroseconds(timestamp))/1000;
-  std::cout << "forward detection time: " << timeDiff << "ms" << std::endl;
+  if(m_verbose)
+    std::cout << "forward detection time: " << timeDiff << "ms" << std::endl;
   std::vector<Cone> conesToSend = MatchCones(cones);
   SendMatchedContainer(conesToSend);
 }
@@ -811,9 +757,16 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
   std::vector<int> verifiedIndex;
   std::vector<cv::Vec3i> porperty;
   std::vector<Cone> localCones;
-
+  std::vector<cv::Scalar> colors;
+  colors.push_back(cv::Scalar(0,0,0));
+  colors.push_back(cv::Scalar(255,0,0));
+  colors.push_back(cv::Scalar(0,255,255));
+  colors.push_back(cv::Scalar(0,165,255));
+  colors.push_back(cv::Scalar(0,0,255));
+  std::string labels[] = {"background", "blue", "yellow", "orange", "big orange"};
+  
   int rowT = 190;
-  int rowB = 340;
+  int rowB = 320;
   cv::Mat imgRoI = img.rowRange(rowT, rowB);
   img.copyTo(imgSource);
 
@@ -831,98 +784,75 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
   for(size_t i = 0; i < keypoints.size(); i++){
     cv::Point position(int(keypoints[i].pt.x), int(keypoints[i].pt.y)+rowT);
     cv::Point3f point3D = XYZ.at<cv::Point3f>(position);
-    if(point3D.y>0.6 && point3D.y<0.9 && point3D.z > 0){
+    if(point3D.y>0.7 && point3D.y<0.9 && point3D.z > 0 && point3D.z < m_maxZ){
       point3Ds.push_back(point3D);
       positions.push_back(position);
     }
   }
   if(point3Ds.size()==0)
     return localCones;
-  // auto uniPoint = unique(point3Ds.begin(), point3Ds.end());
-  // point3Ds.resize(distance(point3Ds.begin(), uniPoint));
-  filterKeypoints(point3Ds);
-
-  
-  // int resultWidth = 500;
-  // int resultHeight = 500;
-  // cv::Mat result = cv::Mat::zeros(500,500,CV_8UC3);
-  // double resultResize = 20;
-  // for(size_t i = 0; i < point3Ds.size(); i++){
-  //   int xt = int(point3Ds[i].x * float(resultResize) + resultWidth/2);
-  //   int yt = int(point3Ds[i].z * float(resultResize) + resultWidth/2);
-  //   if (xt >= 0 && xt <= resultWidth && yt >= 0 && yt <= resultHeight){
-  //     std::cout << "camera: " << xt << " " << yt << std::endl;
-  //     cv::circle(result, cv::Point (xt,yt), 3, cv::Scalar (0,0,255), -1);
-  //   }
-  // }
-  // for(int i = 0; i < lidarCones.cols(); i++){
-  //   cv::Point3f lidarCone(float(m_xShift+lidarCones(0,i)), float(m_yShift+lidarCones(2,i)), float(m_zShift+lidarCones(1,i)));
-  //   int xt = int(lidarCone.x * float(resultResize) + resultWidth/2);
-  //   int yt = int(lidarCone.z * float(resultResize) + resultWidth/2);
-  //   if (xt >= 0 && xt <= resultWidth && yt >= 0 && yt <= resultHeight){
-  //     std::cout << "lidar: " << xt << " " << yt << std::endl;
-  //     cv::circle(result, cv::Point (xt,yt), 3, cv::Scalar (255,0,0), -1);
-  //   }
-  // }
-  // cv::flip(result, result, 0);
-  // std::string saveString = "/opt/"+m_folderName+"/results/"+std::to_string(m_currentFrame++)+"_"+std::to_string(minValue)+".png";
-  // std::thread imWriteThread(&DetectCone::saveImages,this,saveString,result);
-  // imWriteThread.detach();
-
 
   for(int i = 0; i < lidarCones.cols(); i++){
-    cv::Point2f lidarPoint2D, cameraPoint2D;
+    cv::Point2f point2D, cameraPoint2D;
     Cone cone = Cone(lidarCones(0,i),lidarCones(1,i),lidarCones(2,i));
     cv::Point3f lidarCone(float(m_xShift+lidarCones(0,i)), float(m_yShift+lidarCones(2,i)), float(m_zShift+lidarCones(1,i)));
-    int radius = xyz2xy(Q, lidarCone, lidarPoint2D, 0.5f);
-    cv::Point2f point2D = lidarPoint2D;
+    int radius = xyz2xy(Q, lidarCone, point2D, 0.4f);
+
     int x = int(point2D.x);
     int y = int(point2D.y);
+
     cv::Rect roi;
     roi.x = std::max(x - radius, 0);
     roi.y = std::max(y - radius, 0);
     roi.width = std::min(std::max(x + radius,0), img.cols) - roi.x;
     roi.height = std::min(std::max(y + radius,0), img.rows) - roi.y;
-    bool flag = false;
-    float minDistance = 2;
-    for(size_t j = 0; j < point3Ds.size(); j++){
-      int radius_tmp = xyz2xy(Q, point3Ds[j], cameraPoint2D, 0.3f);
-      if(cameraPoint2D.x >= roi.x && cameraPoint2D.x <= roi.x+roi.width && cameraPoint2D.y >= roi.y && cameraPoint2D.y <= roi.y+roi.height){
-        float distance = static_cast<float>(std::pow(std::pow(point3Ds[j].x-lidarCone.x,2)+std::pow(point3Ds[j].y-lidarCone.y,2)+std::pow(point3Ds[j].z-lidarCone.z,2),0.5));
-        if(distance<minDistance){
-          flag = true;
-          minDistance = distance;
-          radius = radius_tmp;
-          point2D = cameraPoint2D;
-        }
-      }
-    }
-    if(flag == false){
-      cone.m_label = 10;
+
+    if (0 >= roi.x || 0 >= roi.width || roi.x + roi.width > img.cols || 0 >= roi.y || 0 >= roi.height || roi.y + roi.height >= img.rows || radius <= 0){
+      cone.m_label = 10; 
     }
     else{
-      x = int(point2D.x);
-      y = int(point2D.y);
-      roi.x = std::max(x - radius, 0);
-      roi.y = std::max(y - radius, 0);
-      roi.width = std::min(std::max(x + radius,0), img.cols) - roi.x;
-      roi.height = std::min(std::max(y + radius,0), img.rows) - roi.y;
-    
-      if (0 >= roi.x || 0 >= roi.width || roi.x + roi.width > img.cols || 0 >= roi.y || 0 >= roi.height || roi.y + roi.height >= img.rows || radius <= 0){
-        cone.m_label = 10; 
+      cv::Mat patchImg = imgSource(roi);
+      std::vector<std::pair<cv::Point,float>> positionDistances;
+      for(size_t j = 0; j < point3Ds.size(); j++){
+        xyz2xy(Q, point3Ds[j], cameraPoint2D, 0.3f);
+        if(cameraPoint2D.x >= roi.x && cameraPoint2D.x <= roi.x+roi.width && cameraPoint2D.y >= roi.y && cameraPoint2D.y <= roi.y+roi.height){
+          float distance = static_cast<float>(std::pow(std::pow(point3Ds[j].x-lidarCone.x,2)+std::pow(point3Ds[j].y-lidarCone.y,2)+std::pow(point3Ds[j].z-lidarCone.z,2),0.5));
+          positionDistances.push_back(std::pair<cv::Point,float>(cameraPoint2D,distance));
+        }
+      }
+      if(positionDistances.size()==0){
+        if(m_verbose)
+          std::cout << "Not match to ORB RoI!" << std::endl;
+        cone.m_label = 10;
       }
       else{
-        cv::Mat patchImg = imgSource(roi);
-        tiny_dnn::vec_t data;
-        convertImage(patchImg, m_patchSize, m_patchSize, data);
-        inputs.push_back({data});
-        cone.m_label = 0;
-        verifiedIndex.push_back(i);
-        porperty.push_back(cv::Vec3i(x,y,radius));
+        cv::Point position = pointFilter(positionDistances);
+        cv::Point3f point3D = XYZ.at<cv::Point3f>(position);
+        radius = xyz2xy(Q, point3D, point2D, 0.3f);
+      
+        x = int(point2D.x);
+        y = int(point2D.y);
+        roi.x = std::max(x - radius, 0);
+        roi.y = std::max(y - radius, 0);
+        roi.width = std::min(std::max(x + radius,0), img.cols) - roi.x;
+        roi.height = std::min(std::max(y + radius,0), img.rows) - roi.y;
+        if (0 >= roi.x || 0 >= roi.width || roi.x + roi.width > img.cols || 0 >= roi.y || 0 >= roi.height || roi.y + roi.height >= img.rows || radius <= 0){
+          cone.m_label = 10; 
+        }
+        else{
+          patchImg = imgSource(roi);
+          tiny_dnn::vec_t data;
+          convertImage(patchImg, m_patchSize, m_patchSize, data);
+          inputs.push_back({data});
+          cone.m_label = 0;
+          verifiedIndex.push_back(i);
+          porperty.push_back(cv::Vec3i(x,y,radius));
+        }
       }
     }
     localCones.push_back(cone);
   }
+
   if(inputs.size()>0){
     auto prob = m_model.predict(inputs);
     for(size_t i = 0; i < inputs.size(); i++){
@@ -942,67 +872,56 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
         annotate(imgSource, maxIndex, position, radius);
       }
 
-      std::string labels[] = {"background", "blue", "yellow", "orange", "big orange"};
+      localCones[verifiedIndex[i]].m_prob = maxProb;
       if (maxIndex == 0 || maxProb < m_threshold){
         localCones[verifiedIndex[i]].m_label = 0;
-        localCones[verifiedIndex[i]].m_prob = maxProb;
         if(m_verbose){
           std::cout << "No cone detected" << std::endl;
         }
-        cv::circle(img, position, radius, cv::Scalar (0,0,0));
+        cv::circle(img, position, radius, colors[0], 2);
       } 
       else{
         localCones[verifiedIndex[i]].m_label = maxIndex;
-        localCones[verifiedIndex[i]].m_prob = maxProb;
         std::string labelName = labels[maxIndex];
         if(m_verbose){
-          std::cout << "Find one " << labels[maxIndex-1] << " cone"<< std::endl;
+          std::cout << "Find one " << labels[maxIndex] << " cone"<< std::endl;
         }
-        if (labelName == "blue")
-          cv::circle(img, position, radius, cv::Scalar (255,0,0), 2);
-        else if (labelName == "yellow")
-          cv::circle(img, position, radius, cv::Scalar (0,255,255), 2);
-        else if (labelName == "orange")
-          cv::circle(img, position, radius, cv::Scalar (0,165,255), 2);
-        else if (labelName == "big orange")
-          cv::circle(img, position, radius, cv::Scalar (0,0,255), 2);
+        cv::circle(img, position, radius, colors[maxIndex], 2);
       }
     }
   }
 
-  std::vector<cv::Scalar> colors;
-  colors.push_back(cv::Scalar(0,0,0));
-  colors.push_back(cv::Scalar(255,0,0));
-  colors.push_back(cv::Scalar(0,255,255));
-  colors.push_back(cv::Scalar(0,165,255));
-  colors.push_back(cv::Scalar(0,0,255));
   int resultWidth = m_height;
   int resultHeight = m_height;
   cv::Mat result = cv::Mat::zeros(resultWidth,resultHeight,CV_8UC3);
-  double resultResize = 10;
-  for(size_t i = 0; i < localCones.size(); i++){
-    int xt = int((localCones[i].getX() + m_xShift) * float(resultResize) + resultWidth/2);
-    int yt = int((localCones[i].getY() + m_zShift) * float(resultResize) + resultWidth/2);
+  double resultResize = 15;
+  for(int i = 0; i < lidarCones.cols(); i++){
+    cv::Point3f lidarCone(float(m_xShift+lidarCones(0,i)), float(m_yShift+lidarCones(2,i)), float(m_zShift+lidarCones(1,i)));
+    int xt = int(lidarCone.x * float(resultResize) + resultWidth/2);
+    int yt = int(lidarCone.z * float(resultResize));
     if (xt >= 0 && xt <= resultWidth && yt >= 0 && yt <= resultHeight){
-      // std::cout << "merge: " << xt << " " << yt << std::endl;
-      cv::circle(result, cv::Point (xt,yt), 2, colors[localCones[i].getLabel()], -1);
+      cv::circle(result, cv::Point (xt,yt), 6, cv::Scalar (255,255,255), -1);
+    }
+  }
+  for(size_t i = 0; i < localCones.size(); i++){
+    int label = localCones[i].getLabel();
+    if(label>0 and label<10){
+      int xt = int((localCones[i].getX() + m_xShift) * float(resultResize) + resultWidth/2);
+      int yt = int((localCones[i].getY() + m_zShift) * float(resultResize));
+      if (xt >= 0 && xt <= resultWidth && yt >= 0 && yt <= resultHeight){
+        // std::cout << label << " " << colors[label] << std::endl;
+        cv::circle(result, cv::Point (xt,yt), 3, colors[label], -1);
+      }
     }
   }
 
   for(size_t i = 0; i < positions.size(); i++){
     cv::circle(img, positions[i], 1, cv::Scalar (255,255,255), -1);
   }
-  cv::line(img, cv::Point(0,rowT), cv::Point(m_width,rowT), cv::Scalar(0,0,255), 2);
-  cv::line(img, cv::Point(0,rowB), cv::Point(m_width,rowB), cv::Scalar(0,0,255), 2);
-  cv::Mat outImg;
-  cv::flip(result, result, 0);
-  cv::hconcat(img,result,outImg);
 
   std::string saveString = "/opt/"+m_folderName+"/results/"+std::to_string(m_currentFrame++)+"_"+std::to_string(minValue)+".png";
-  // std::thread imWriteThread(&DetectCone::saveImages,this,saveString,outImg);
-  // imWriteThread.detach();
-  cv::imwrite(saveString, outImg);
-
+  std::thread imWriteThread(&DetectCone::saveImages,this,saveString,img);
+  imWriteThread.detach();
   double timeDiff = (cluon::time::toMicroseconds(cluon::time::now()) - cluon::time::toMicroseconds(timestamp))/1000;
   std::cout << "backward detection time: " << timeDiff << "ms" << std::endl;
   return localCones;
@@ -1010,7 +929,6 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
 
 Eigen::MatrixXd DetectCone::Spherical2Cartesian(double azimuth, double zenimuth, double distance)
 {
-  //double xyDistance = distance * cos(azimuth * static_cast<double>(DEG2RAD));
   double xData = distance * cos(zenimuth * static_cast<double>(DEG2RAD))*sin(azimuth * static_cast<double>(DEG2RAD));
   double yData = distance * cos(zenimuth * static_cast<double>(DEG2RAD))*cos(azimuth * static_cast<double>(DEG2RAD));
   double zData = distance * sin(zenimuth * static_cast<double>(DEG2RAD));
@@ -1075,8 +993,6 @@ void DetectCone::SendCollectedCones(Eigen::MatrixXd lidarCones)
     cluon::data::TimeStamp time1 = cluon::time::now();
     if(m_verbose)
       std::cout << "Delta in microseconds (acquisition)" << cluon::time::deltaInMicroseconds(time1,m_start) << std::endl;
-    // std::cout << "Start detection" << std::endl;
-    //Retrieve Image (Can be extended with timestamp matching)
     std::unique_lock<std::mutex> lock(m_imgMutex);
 
     int minIndex;
@@ -1091,7 +1007,6 @@ void DetectCone::SendCollectedCones(Eigen::MatrixXd lidarCones)
           minValue = timeDiff;
         }
       }
-      // std::cout << m_timeStamps[minIndex] << " " << cluon::time::toMicroseconds(m_coneTimeStamp) << " " << minValue << std::endl;
       time1 = cluon::time::now();
       m_img = cv::imread("/opt/images/"+std::to_string(minIndex)+".png");
       m_currentFrame = minIndex;
@@ -1143,7 +1058,6 @@ std::vector<Cone> DetectCone::MatchCones(std::vector<Cone> cones){
   double posShiftY = 0;
   uint32_t numberOfCones = cones.size();
   std::vector<uint32_t> removeIndex;
-  //Eigen::MatrixXd conePoints = Eigen::MatrixXd::Zero(numberOfCones,3);
   int validCones = 0;
   for(uint32_t i1 = 0; i1 < m_coneFrame.size(); i1++){
     if(m_coneFrame[i1].second.isValid()){
@@ -1161,7 +1075,6 @@ std::vector<Cone> DetectCone::MatchCones(std::vector<Cone> cones){
     if(validCones == 0){
       if(m_verbose)
         std::cout << "in empty frame" << std::endl;
-      //m_coneFrame.clear();
       m_coneFrame.push_back(objectPair);
     }else{ 
       int k = 0;
@@ -1172,7 +1085,6 @@ std::vector<Cone> DetectCone::MatchCones(std::vector<Cone> cones){
           posShiftX += m_coneFrame[k].second.getX() - objectPair.second.getX();
           posShiftY += m_coneFrame[k].second.getY() - objectPair.second.getY();
           m++;
-          //std::cout << "found match" << std::endl;
           m_coneFrame[k].second.setX(objectPair.second.getX());
           m_coneFrame[k].second.setY(objectPair.second.getY());
           m_coneFrame[k].second.addHit();
@@ -1190,7 +1102,6 @@ std::vector<Cone> DetectCone::MatchCones(std::vector<Cone> cones){
           posShiftX += m_coneFrame[k].second.getX() - objectPair.second.getX();
           posShiftY += m_coneFrame[k].second.getY() - objectPair.second.getY();
           m++;
-          //std::cout << "found match" << std::endl;
           m_coneFrame[k].second.setX(objectPair.second.getX());
           m_coneFrame[k].second.setY(objectPair.second.getY());
           m_coneFrame[k].second.addColor(objectPair.second.m_label);
@@ -1204,19 +1115,17 @@ std::vector<Cone> DetectCone::MatchCones(std::vector<Cone> cones){
         objectPair.second.addColor(objectPair.second.m_label);
         m_coneFrame.push_back(objectPair);
       }
-    }   //std::cout << "Cone Sent" << std::endl;//std::cout << "a point sent out with distance: " <<conePoint.getDistance() <<"; azimuthAngle: " << conePoint.getAzimuthAngle() << "; and zenithAngle: " << conePoint.getZenithAngle() << std::endl;
+    }  
   }
   std::vector<Cone> sentCones;
   int sentCounter = 0;
   for(uint32_t i = 0; i < m_coneFrame.size(); i++){
     if(m_coneFrame[i].second.isValid()){
       if(m_coneFrame[i].second.shouldBeRemoved()){
-        //m_coneFrame.erase(m_coneFrame.begin()+i)  DO NOT REMOVE LIKE THIS
         m_coneFrame[i].second.setValidState(false);
         continue; 
       }
       if(!m_coneFrame[i].first && m_coneFrame[i].second.shouldBeInFrame()){  
-        //std::cout << "is not matched but should be in frame | curr X: " << m_coneFrame[i].second.getX() << " shift: "  << posShiftX/m<< std::endl;
         double x = m_coneFrame[i].second.getX() - posShiftX/m;
         double y = m_coneFrame[i].second.getY() - posShiftY/m;
         m_coneFrame[i].second.setX(x);
@@ -1233,7 +1142,7 @@ std::vector<Cone> DetectCone::MatchCones(std::vector<Cone> cones){
         m_coneFrame[i].second.addMiss();
       }
     }
-  }//loop
+  }
   return sentCones;
 }
 
@@ -1262,32 +1171,39 @@ void DetectCone::SendMatchedContainer(std::vector<Cone> cones)
     coneType.objectId(0);
     coneType.type(666);
     m_od4.send(coneType,sampleTime,m_senderStamp);
+    std::cout << "sent 666: " << cluon::time::toMicroseconds(m_imgTimeStamp) << std::endl;
   }
   else{
     for(uint32_t n = 0; n < cones.size(); n++){
       opendlv::logic::sensation::Point conePoint;
       Cartesian2Spherical(cones[n].getX(), cones[n].getY(), cones[n].getZ(), conePoint);
-      if(m_lidarIsWorking){
-        LidarToCoG(conePoint);
-      }else{
-        CameraToCoG(conePoint);
+      // if(m_lidarIsWorking){
+      //   LidarToCoG(conePoint);
+      // }else{
+      //   CameraToCoG(conePoint);
+      // }
+      LidarToCoG(conePoint);
+      if(std::isnan(conePoint.azimuthAngle())||std::isnan(conePoint.zenithAngle())||std::isnan(conePoint.distance())){
+        std::cout << "Nan appear! " << cluon::time::toMicroseconds(m_imgTimeStamp) << " " << cones[n].getX() << " " << cones[n].getY() << " " << cones[n].getZ() << " " << conePoint.azimuthAngle() << " " << conePoint.zenithAngle() << " " << conePoint.distance() << " " << cones[n].m_label << std::endl;
       }
-      uint32_t index = cones.size()-1-n;
-      opendlv::logic::perception::ObjectDirection coneDirection;
-      coneDirection.objectId(index);
-      coneDirection.azimuthAngle(-conePoint.azimuthAngle());  //Negative to convert to car frame from LIDAR
-      coneDirection.zenithAngle(conePoint.zenithAngle());
-      m_od4.send(coneDirection,sampleTime,m_senderStamp);
+      else{
+        uint32_t index = cones.size()-1-n;
+        opendlv::logic::perception::ObjectDirection coneDirection;
+        coneDirection.objectId(index);
+        coneDirection.azimuthAngle(-conePoint.azimuthAngle());  //Negative to convert to car frame from LIDAR
+        coneDirection.zenithAngle(conePoint.zenithAngle());
+        m_od4.send(coneDirection,sampleTime,m_senderStamp);
 
-      opendlv::logic::perception::ObjectDistance coneDistance;
-      coneDistance.objectId(index);
-      coneDistance.distance(conePoint.distance());
-      m_od4.send(coneDistance,sampleTime,m_senderStamp);
+        opendlv::logic::perception::ObjectDistance coneDistance;
+        coneDistance.objectId(index);
+        coneDistance.distance(conePoint.distance());
+        m_od4.send(coneDistance,sampleTime,m_senderStamp);
 
-      opendlv::logic::perception::ObjectType coneType;
-      coneType.objectId(index);
-      coneType.type(uint32_t(cones[n].m_label));
-      m_od4.send(coneType,sampleTime,m_senderStamp);
+        opendlv::logic::perception::ObjectType coneType;
+        coneType.objectId(index);
+        coneType.type(uint32_t(cones[n].m_label));
+        m_od4.send(coneType,sampleTime,m_senderStamp);
+      }
     }
   }
   cluon::data::TimeStamp endTime = cluon::time::now();

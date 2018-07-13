@@ -33,7 +33,6 @@
 #include <sstream>
 #include <dirent.h>
 #include <ctime>
-#include <algorithm> 
 
 #include "cluon-complete.hpp"
 #include "opendlv-standard-message-set.hpp"
@@ -89,7 +88,6 @@ class DetectCone {
   std::vector<Cone> backwardDetection(cv::Mat, Eigen::MatrixXd&, int64_t);
   std::vector<Cone> MatchCones(std::vector<Cone>);
 
-  //void initializeCollection();
   Eigen::MatrixXd Spherical2Cartesian(double, double, double);
   void Cartesian2Spherical(double, double, double, opendlv::logic::sensation::Point&);
   void LidarToCoG(opendlv::logic::sensation::Point& conePoint);
@@ -111,7 +109,6 @@ class DetectCone {
   Eigen::MatrixXd m_coneCollector;
   uint32_t m_lastObjectId;
   bool m_newFrame;
-  // bool m_processing;
   std::mutex m_coneMutex;
   std::mutex m_imgMutex;
   std::mutex m_stateMachineMutex;

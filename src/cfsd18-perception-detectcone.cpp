@@ -20,12 +20,6 @@
 
 int32_t main(int32_t argc, char **argv) {
     int32_t retCode{0};
-    // DIR *dir = opendir("model");
-    // if(!dir)
-    // {
-    // printf("model not exist!\n");
-    // return 0;
-    // }
     std::map<std::string, std::string> commandlineArguments = cluon::getCommandlineArguments(argc, argv);
     if (commandlineArguments.count("cid")<1) {
         std::cerr << argv[0] << " is a detectcone module for the CFSD18 project." << std::endl;
@@ -43,7 +37,6 @@ int32_t main(int32_t argc, char **argv) {
         uint32_t senderStamp = static_cast<uint32_t>(std::stoi(commandlineArguments["senderStamp"]));
         uint32_t stateMachineStamp = static_cast<uint32_t>(std::stoi(commandlineArguments["stateMachineId"]));
 
-        // const bool VERBOSE{commandlineArguments.count("verbose") != 0};
         bool sentReadySignal = false;
         
         cluon::OD4Session od4{static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
@@ -74,28 +67,22 @@ int32_t main(int32_t argc, char **argv) {
         od4.dataTrigger(opendlv::proxy::SwitchStateReading::ID(),stateMachineStatusEnvelope);
 
         std::stringstream currentDateTime;
-        // current date/time based on current system
         time_t ttNow = time(0);
         tm * ptmNow;
         ptmNow = localtime(&ttNow);
         currentDateTime << 1900 + ptmNow->tm_year << "-";
-        //month
         if (ptmNow->tm_mon < 9)
-            //Fill in the leading 0 if less than 10
             currentDateTime << "0" << 1 + ptmNow->tm_mon << "-";
         else
             currentDateTime << (1 + ptmNow->tm_mon) << "-";
-        //day
         if (ptmNow->tm_mday < 10)
             currentDateTime << "0" << ptmNow->tm_mday << "_";
         else
             currentDateTime <<  ptmNow->tm_mday << "_";
-        //hour
         if (ptmNow->tm_hour < 10)
             currentDateTime << "0" << ptmNow->tm_hour;
         else
             currentDateTime << ptmNow->tm_hour;
-        //min
         if (ptmNow->tm_min < 10)
             currentDateTime << "0" << ptmNow->tm_min;
         else
@@ -190,9 +177,8 @@ int32_t main(int32_t argc, char **argv) {
                             int64_t ts = cluon::time::toMicroseconds(imgTimestamp);
                             file << std::setprecision(19) << ts << std::endl;
                             std::string saveString = imgPath + std::to_string(frameCounter++) + ".png";
-                            // std::thread imWriteThread(&DetectCone::saveImages,&detectcone,saveString,img);
-                            // imWriteThread.detach();
-                            cv::imwrite(saveString, img);
+                            std::thread imWriteThread(&DetectCone::saveImages,&detectcone,saveString,img);
+                            imWriteThread.detach();
                         }else{
                             runningState = detectcone.getRunningState();
                         }                       
@@ -209,7 +195,6 @@ int32_t main(int32_t argc, char **argv) {
     }
     return retCode;
 }
-
 
 
 
