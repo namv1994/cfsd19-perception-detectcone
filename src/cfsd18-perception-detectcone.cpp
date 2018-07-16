@@ -95,15 +95,9 @@ int32_t main(int32_t argc, char **argv) {
 
         std::string command = "mkdir /opt/"+folderName;
         system(command.c_str());
-        command = "mkdir /opt/"+folderName+"/timestamp/";
-        system(command.c_str());
-        command = "mkdir /opt/"+folderName+"/images/";
-        system(command.c_str());
-        command = "mkdir /opt/"+folderName+"/results/";
-        system(command.c_str());
-        detectcone.getFolderName(folderName);
 
         if(offline){
+            detectcone.getFolderName(folderName+"/");
             detectcone.getTimeStamp("/opt/timestamp/timestamps.txt");
             while (od4.isRunning()) {
                 detectcone.checkLidarState();
@@ -121,6 +115,14 @@ int32_t main(int32_t argc, char **argv) {
 
                 (void)ID;
                 (void)SIZE;
+
+                command = "mkdir /opt/"+folderName+"/timestamp/";
+                system(command.c_str());
+                command = "mkdir /opt/"+folderName+"/images/";
+                system(command.c_str());
+                command = "mkdir /opt/"+folderName+"/results/";
+                system(command.c_str());
+                detectcone.getFolderName(folderName+"/results/");
 
                 std::string filepathTimestamp = "/opt/"+folderName+"/timestamp/timestamps.txt";
                 std::string imgPath = "/opt/"+folderName+"/images/";
