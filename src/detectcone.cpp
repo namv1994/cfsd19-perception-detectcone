@@ -108,11 +108,16 @@ void DetectCone::receiveCombinedMessage(cluon::data::TimeStamp currentFrameTime,
   while(it != currentFrame.end()){
     auto direction = std::get<0>(it->second);
     auto distance = std::get<1>(it->second);
-    cones(0,coneIndex) = -direction.azimuthAngle();
-    cones(1,coneIndex) = direction.zenithAngle();
-    cones(2,coneIndex) = distance.distance();
-    coneIndex++;
-    it++;
+    if(std::isnan(direction.azimuthAngle()) || std::isnan(direction.zenithAngle()) || std::isnan(distance.distance())){
+      std::cout << "Nan xyz: " << m_currentFrame << std::endl;
+    }
+    else{
+      cones(0,coneIndex) = -direction.azimuthAngle();
+      cones(1,coneIndex) = direction.zenithAngle();
+      cones(2,coneIndex) = distance.distance();
+      coneIndex++;
+    }
+    it++; 
   }
   if(cones.cols()>0 && m_recievedFirstImg){
     if(m_verbose)
@@ -227,7 +232,7 @@ void DetectCone::checkLidarState(){
         std::cout << "currentFrame: " << m_currentFrame << std::endl;
       m_lidarIsWorking = false;
       if(m_forwardDetection){
-        m_img = cv::imread("/opt/images/"+std::to_string(m_currentFrame)+".png");
+        m_img = cv::imread("/opt/images/"+std::to_string(m_currentFrame++)+".png");
         forwardDetectionORB(m_img);
       }
     }
@@ -738,7 +743,7 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
   cv::line(img, cv::Point(0,rowT), cv::Point(m_width,rowT), cv::Scalar(0,0,255), 2);
   cv::line(img, cv::Point(0,rowB), cv::Point(m_width,rowB), cv::Scalar(0,0,255), 2);
 
-  std::string saveString = "/opt/"+m_folderName+"/results/"+std::to_string(m_currentFrame++)+".png";
+  std::string saveString = "/opt/"+m_folderName+"/results/"+std::to_string(m_currentFrame)+".png";
   std::thread imWriteThread(&DetectCone::saveImages,this,saveString,img);
   imWriteThread.detach();
   double timeDiff = (cluon::time::toMicroseconds(cluon::time::now()) - cluon::time::toMicroseconds(timestamp))/1000;
@@ -923,7 +928,8 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
   std::thread imWriteThread(&DetectCone::saveImages,this,saveString,img);
   imWriteThread.detach();
   double timeDiff = (cluon::time::toMicroseconds(cluon::time::now()) - cluon::time::toMicroseconds(timestamp))/1000;
-  std::cout << "backward detection time: " << timeDiff << "ms" << std::endl;
+  if(m_verbose)
+    std::cout << "backward detection time: " << timeDiff << "ms" << std::endl;
   return localCones;
 }
 
@@ -1171,7 +1177,10 @@ void DetectCone::SendMatchedContainer(std::vector<Cone> cones)
     coneType.objectId(0);
     coneType.type(666);
     m_od4.send(coneType,sampleTime,m_senderStamp);
-    std::cout << "sent 666: " << cluon::time::toMicroseconds(m_imgTimeStamp) << std::endl;
+    std::cout << "sent 666: " << m_currentFrame << std::endl;
+    for(uint32_t n = 0; n < cones.size(); n++){
+      std::cout << cones[n].m_label << std::endl;
+    }
   }
   else{
     for(uint32_t n = 0; n < cones.size(); n++){
@@ -1184,7 +1193,7 @@ void DetectCone::SendMatchedContainer(std::vector<Cone> cones)
       // }
       LidarToCoG(conePoint);
       if(std::isnan(conePoint.azimuthAngle())||std::isnan(conePoint.zenithAngle())||std::isnan(conePoint.distance())){
-        std::cout << "Nan appear! " << cluon::time::toMicroseconds(m_imgTimeStamp) << " " << cones[n].getX() << " " << cones[n].getY() << " " << cones[n].getZ() << " " << conePoint.azimuthAngle() << " " << conePoint.zenithAngle() << " " << conePoint.distance() << " " << cones[n].m_label << std::endl;
+        std::cout << "Nan appear! " << m_currentFrame << " " << cones[n].getX() << " " << cones[n].getY() << " " << cones[n].getZ() << " " << conePoint.azimuthAngle() << " " << conePoint.zenithAngle() << " " << conePoint.distance() << " " << cones[n].m_label << std::endl;
       }
       else{
         uint32_t index = cones.size()-1-n;

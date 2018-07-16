@@ -144,11 +144,11 @@ auto start = std::chrono::system_clock::now();
         sleep = false;
     }
     if(elapsed.count() > m_timeOutMs*1000){
-        std::cout << "Timed out" << std::endl;
+        // std::cout << "Timed out" << std::endl;
         sleep = false;
     }
     if (dur.count()>m_separationTimeMs*0.001) {
-      std::cout << "Separation time exceeded: " <<" dur.count(): "<<dur.count()<<" m_separationTimeMs*0.001 "<<m_separationTimeMs*0.001<<std::endl;
+      // std::cout << "Separation time exceeded: " <<" dur.count(): "<<dur.count()<<" m_separationTimeMs*0.001 "<<m_separationTimeMs*0.001<<std::endl;
       sleep = false;
     }
   }
@@ -163,7 +163,7 @@ void Collector::GetCompleteFrame(){
     while(it2 != m_envelopeCount.end()){
         if(it2->second != static_cast<int>(m_packetSize)){
             currentFrameCopy.erase(it2->first);
-            std::cout << "Incomplete frame with id " << it2->first << " removed" << std::endl;
+            // std::cout << "Incomplete frame with id " << it2->first << " removed" << std::endl;
         }
         it2++;
         //it++;
