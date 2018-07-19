@@ -343,9 +343,10 @@ void DetectCone::convertImage(cv::Mat img, int w, int h, tiny_dnn::vec_t& data){
 }
 
 void DetectCone::adjustLighting(cv::Mat img, cv::Mat& outImg){
-  cv::Scalar meanScalar = cv::mean(img);
-  double mean = (meanScalar.val[0]+meanScalar.val[1]+meanScalar.val[2])/3;
-  outImg = img*128/mean;
+  // cv::Scalar meanScalar = cv::mean(img);
+  // double mean = (meanScalar.val[0]+meanScalar.val[1]+meanScalar.val[2])/3;
+  // outImg = img*128/mean;
+  outImg = img;
 }
 
 void DetectCone::CNN(const std::string& dictionary, tiny_dnn::network<tiny_dnn::sequential>& model) {
@@ -362,7 +363,7 @@ void DetectCone::CNN(const std::string& dictionary, tiny_dnn::network<tiny_dnn::
      << conv(15, 15, 3, 16, 32, tiny_dnn::padding::valid, true, 2, 2, backend_type) << tanh() 
      << conv(7, 7, 3, 32, 32, tiny_dnn::padding::valid, true, 2, 2, backend_type) << tanh()                    
      << fc(3 * 3 * 32, 128, true, backend_type) << relu()  
-     << fc(128, 5, true, backend_type) << softmax(5); 
+     << fc(128, 4, true, backend_type) << softmax(4); 
 
   std::ifstream ifs(dictionary.c_str());
   if (!ifs.good()){
@@ -646,7 +647,7 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
   if(keypoints.size()==0)
     return;
 
-  cv::Mat probMap[5] = cv::Mat::zeros(m_height, m_width, CV_64F);
+  cv::Mat probMap[4] = cv::Mat::zeros(m_height, m_width, CV_64F);
   
   std::vector<cv::Point3f> point3Ds;
   cv::Point2f point2D;
@@ -685,13 +686,13 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
     }
   }
 
-  std::string labels[] = {"background", "blue", "yellow", "orange", "big orange"};
+  std::string labels[] = {"background", "blue", "yellow", "orange"};
   if(inputs.size()>0){
     auto prob = m_model.predict(inputs);
     for(size_t i = 0; i < inputs.size(); i++){
       size_t maxIndex = 0;
       double maxProb = prob[i][0][0];
-      for(size_t j = 1; j < 5; j++){
+      for(size_t j = 1; j < 4; j++){
         if(prob[i][0][j] > maxProb){
           maxIndex = j;
           maxProb = prob[i][0][j];
@@ -701,7 +702,7 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
       int y = candidates[i].y;
       probMap[maxIndex].at<double>(y,x) = maxProb;
     }
-    for(size_t i = 0; i < 5; i++){
+    for(size_t i = 0; i < 4; i++){
       imRegionalMax(cones, i, probMap[i], 10, m_threshold, 20);
     }
 
@@ -738,10 +739,11 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
           cv::circle(img, position, radius, cv::Scalar (255,0,0), 2);
         else if (labelName == "yellow")
           cv::circle(img, position, radius, cv::Scalar (0,255,255), 2);
-        else if (labelName == "orange")
+        else if (labelName == "orange"){
           cv::circle(img, position, radius, cv::Scalar (0,165,255), 2);
-        else if (labelName == "big orange")
-          cv::circle(img, position, radius, cv::Scalar (0,0,255), 2);
+          cones[i].m_label = 4;
+        }
+
 
         if(m_verbose){
           std::cout << position << " " << labelName << " " << point3D << " " << maxProb << std::endl; 
@@ -782,8 +784,7 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
   colors.push_back(cv::Scalar(255,0,0));
   colors.push_back(cv::Scalar(0,255,255));
   colors.push_back(cv::Scalar(0,165,255));
-  colors.push_back(cv::Scalar(0,0,255));
-  std::string labels[] = {"background", "blue", "yellow", "orange", "big orange"};
+  std::string labels[] = {"background", "blue", "yellow", "orange"};
   
   int rowT = 190;
   int rowB = 320;
@@ -804,7 +805,7 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
   for(size_t i = 0; i < keypoints.size(); i++){
     cv::Point position(int(keypoints[i].pt.x), int(keypoints[i].pt.y)+rowT);
     cv::Point3f point3D = XYZ.at<cv::Point3f>(position);
-    if(point3D.y>0.7 && point3D.y<0.85 && point3D.z > 0 && point3D.z < m_maxZ){
+    if(point3D.y>0.7 && point3D.y<0.9 && point3D.z > 0 && point3D.z < m_maxZ){
       point3Ds.push_back(point3D);
       positions.push_back(position);
     }
@@ -874,7 +875,7 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
     for(size_t i = 0; i < inputs.size(); i++){
       size_t maxIndex = 0;
       float_t maxProb = prob[i][0][0];
-      for(size_t j = 1; j < 5; j++){
+      for(size_t j = 1; j < 4; j++){
         if(prob[i][0][j] > maxProb){
           maxIndex = j;
           maxProb = prob[i][0][j];
@@ -898,9 +899,11 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
       } 
       else{
         localCones[verifiedIndex[i]].m_label = maxIndex;
+        if(maxIndex == 3)
+          localCones[verifiedIndex[i]].m_label = 4;
         std::string labelName = labels[maxIndex];
         if(m_verbose){
-          std::cout << "Find one " << labels[maxIndex] << " cone"<< std::endl;
+          std::cout << "Find one " << labels[maxIndex] << " cone" << std::endl;
         }
         cv::circle(img, position, radius, colors[maxIndex], 2);
       }
@@ -921,6 +924,8 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
   }
   for(size_t i = 0; i < localCones.size(); i++){
     int label = localCones[i].getLabel();
+    if(label == 4)
+      label = 3;
     if(label>0 and label<10){
       int xt = int((localCones[i].getX() + m_xShift) * float(resultResize) + resultWidth/2);
       int yt = int((localCones[i].getY() + m_zShift) * float(resultResize));
