@@ -192,7 +192,7 @@ void DetectCone::setStateMachineStatus(cluon::data::Envelope data){
 }
 
 bool DetectCone::getReadyState(){
-  if(m_count>100){
+  if(m_count>150){
     cv::imwrite("/opt/"+m_folderName+std::to_string(m_count)+"_ready.png", m_img);
     return 1;
   }
@@ -562,7 +562,7 @@ void DetectCone::filterKeypoints(std::vector<cv::Point3f>& point3Ds){
           point3D = data[j].pt;
         }
       }
-      if(std::isnan(point3D.x)||std::isnan(point3D.y)||std::isnan(point3D.y))
+      if(std::isnan(point3D.x) || std::isnan(point3D.y) || std::isnan(point3D.z) || point3D.z >= m_maxZ)
         continue;
       point3Ds.push_back(point3D);
     }

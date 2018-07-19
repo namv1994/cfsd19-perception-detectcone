@@ -189,7 +189,11 @@ int32_t main(int32_t argc, char **argv) {
                     cvReleaseImageHeader(&image);
                 }
                 else {
-                    std::cerr << argv[0] << ": Failed to access shared memory '" << NAME << "'." << std::endl;
+                    std::cerr << argv[0] << ": Failed to access shared memory '" << NAME << "', camera fails!" << std::endl;
+                    opendlv::system::SignalStatusMessage ssm;
+                    ssm.code(0);
+                    cluon::data::TimeStamp sampleTime = cluon::time::now();
+                    od4.send(ssm, sampleTime, senderStamp);
                 }
             }
         
