@@ -93,11 +93,18 @@ int32_t main(int32_t argc, char **argv) {
             currentDateTime << ptmNow->tm_sec;
         std::string folderName = currentDateTime.str();
 
-        std::string command = "mkdir /opt/"+folderName;
-        system(command.c_str());
+        std::string command;
 
         if(offline){
-            detectcone.getFolderName(folderName+"/");
+            std::string fileName = "/opt/replay/";
+            std::ifstream infile(fileName);
+            if(infile.good()){
+                command = "rm -r "+fileName;
+                system(command.c_str());
+            }
+            command = "mkdir "+fileName;
+            system(command.c_str());
+            detectcone.getFolderName(fileName);
             detectcone.getTimeStamp("/opt/timestamp/timestamps.txt");
             while (od4.isRunning()) {
                 detectcone.checkLidarState();
@@ -116,6 +123,8 @@ int32_t main(int32_t argc, char **argv) {
                 (void)ID;
                 (void)SIZE;
 
+                command = "mkdir /opt/"+folderName;
+                system(command.c_str());
                 command = "mkdir /opt/"+folderName+"/timestamp/";
                 system(command.c_str());
                 command = "mkdir /opt/"+folderName+"/images/";

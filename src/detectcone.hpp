@@ -80,8 +80,7 @@ class DetectCone {
   int xyz2xy(cv::Mat Q, cv::Point3f xyz, cv::Point2f& xy, float radius);
   int countFiles(const char*);
   void annotate(cv::Mat, int, cv::Point, int);
-  void forwardDetectionORB(cv::Mat img);
-  std::vector<Cone> backwardDetection(cv::Mat, Eigen::MatrixXd&, int64_t);
+  void backwardDetection(cv::Mat, Eigen::MatrixXd&, int64_t);
   std::vector<Cone> MatchCones(std::vector<Cone>);
 
   Eigen::MatrixXd Spherical2Cartesian(double, double, double);
@@ -111,7 +110,6 @@ class DetectCone {
   bool m_offline;
   bool m_annotate;
   bool m_verbose;
-  bool m_forwardDetection;
   bool m_runningState;
   tiny_dnn::network<tiny_dnn::sequential> m_model;
   bool m_lidarIsWorking;
@@ -130,6 +128,7 @@ class DetectCone {
   std::string m_folderName;
   float m_maxZ;
   std::ofstream m_file;
+  bool m_isProcessing;
   
   const double DEG2RAD = 0.017453292522222; // PI/180.0
   const double RAD2DEG = 57.295779513082325; // 1.0 / DEG2RAD;

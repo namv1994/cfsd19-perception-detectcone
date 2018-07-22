@@ -51,7 +51,7 @@ services:
         volumes:
          - /tmp/.X11-unix:/tmp/.X11-unix
          - /media/weiming/46823A5A823A4F25/data/2018-07-19_141101:/opt
-         - /media/weiming/Ny volym/ubuntu-project/cone-detection/models/model:/opt/model
+         - /media/weiming/Ny volym/ubuntu-project/cone-detection/models/model-latest:/opt/model
          - "/dev/shm:/dev/shm"
         # depends_on:
         #   - proxy-camera
@@ -60,8 +60,8 @@ services:
             soft: 5600000 #1516032
             hard: 5600000
         command: "cfsd18-perception-detectcone --cid=${CID} --name=cam0 --width=2560 --height=720 --bpp=24 --threshold=0.5 
-        --timeDiffMilliseconds=40 --separationTimeMs=20 --checkLidarMilliseconds=1000 --senderStamp=118 --attentionSenderStamp=116 
-        --offline=1 --annotate=0 --stateMachineId=1401 --readyStateMachine=1 --forwardDetection=0 --fastThreshold=7 --orbPatchSize=15
+        --timeDiffMilliseconds=40 --separationTimeMs=20 --checkLidarMilliseconds=100 --senderStamp=118 --attentionSenderStamp=116 
+        --offline=1 --annotate=0 --stateMachineId=1401 --readyStateMachine=1 --fastThreshold=7 --orbPatchSize=15
         --matchDistance=1.5"
 
     # cfsd18-sensation-attention:
