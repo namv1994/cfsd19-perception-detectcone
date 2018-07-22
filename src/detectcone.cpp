@@ -20,18 +20,11 @@
 
 DetectCone::DetectCone(std::map<std::string, std::string> commandlineArguments, cluon::OD4Session& od4) :
   m_od4(od4)
-, m_lastLidarData()
-, m_lastCameraData()
-, m_pointMatched()
-, m_diffVec()
-, m_finalPointCloud()
 , m_threshold(0.9f)
-, m_timeDiffMilliseconds()
 , m_coneTimeStamp()
 , m_imgTimeStamp()
 , m_coneCollector()
-, m_lastObjectId()
-, m_newFrame(true)
+, m_lastObjectId(0)
 , m_coneMutex()
 , m_imgMutex()
 , m_stateMachineMutex()
@@ -62,27 +55,18 @@ DetectCone::DetectCone(std::map<std::string, std::string> commandlineArguments, 
 , m_maxZ(8.1234f)
 , m_file()
 {
-  m_diffVec = 0;
-  m_pointMatched = Eigen::MatrixXd::Zero(4,1);
-  m_lastCameraData = Eigen::MatrixXd::Zero(4,1);
-  m_lastLidarData = Eigen::MatrixXd::Zero(4,1);
   m_coneCollector = Eigen::MatrixXd::Zero(4,2000);
-  m_lastObjectId = 0;
-
   setUp(commandlineArguments);
 }
 
 DetectCone::~DetectCone()
 {
   m_file.close();
-  m_img.release();
-  cv::destroyAllWindows();
 }
 
 void DetectCone::setUp(std::map<std::string, std::string> commandlineArguments)
 {
   m_threshold = static_cast<float>(std::stof(commandlineArguments["threshold"]));
-  m_timeDiffMilliseconds = static_cast<int64_t>(std::stoi(commandlineArguments["timeDiffMilliseconds"])); 
   m_checkLidarMilliseconds = static_cast<int64_t>(std::stoi(commandlineArguments["checkLidarMilliseconds"])); 
   m_senderStamp = static_cast<uint32_t>(std::stoi(commandlineArguments["senderStamp"]));
   m_annotate = static_cast<bool>(std::stoi(commandlineArguments["annotate"]));
@@ -149,38 +133,20 @@ void DetectCone::nextContainer(cluon::data::Envelope data)
     m_coneTimeStamp = data.sampleTimeStamp();
     auto coneDirection = cluon::extractMessage<opendlv::logic::perception::ObjectDirection>(std::move(data));
     uint32_t objectId = coneDirection.objectId();
-    bool newFrameDist = false;
-    {
-      std::unique_lock<std::mutex> lockCone(m_coneMutex);
-      m_coneCollector(0,objectId) = -coneDirection.azimuthAngle();  //Negative for conversion from car to LIDAR frame
-      m_coneCollector(1,objectId) = coneDirection.zenithAngle();
-      m_lastObjectId = (m_lastObjectId<objectId)?(objectId):(m_lastObjectId);
-      newFrameDist = m_newFrame;
-      m_newFrame = false;
-    }
-    if (newFrameDist){
-       //std::thread coneCollector(&DetectCone::initializeCollection, this);
-       //coneCollector.detach();
-    }
+    std::unique_lock<std::mutex> lockCone(m_coneMutex);
+    m_coneCollector(0,objectId) = -coneDirection.azimuthAngle();  //Negative for conversion from car to LIDAR frame
+    m_coneCollector(1,objectId) = coneDirection.zenithAngle();
+    m_lastObjectId = (m_lastObjectId<objectId)?(objectId):(m_lastObjectId);
   }
 
   else if(data.dataType() == opendlv::logic::perception::ObjectDistance::ID()){
     m_coneTimeStamp = data.sampleTimeStamp();
     auto coneDistance = cluon::extractMessage<opendlv::logic::perception::ObjectDistance>(std::move(data));
     uint32_t objectId = coneDistance.objectId();
-    bool newFrameDist = false;
-    {
-      std::unique_lock<std::mutex> lockCone(m_coneMutex);
-      m_coneCollector(2,objectId) = coneDistance.distance();
-      m_coneCollector(3,objectId) = 0;
-      m_lastObjectId = (m_lastObjectId<objectId)?(objectId):(m_lastObjectId);
-      newFrameDist = m_newFrame;
-      m_newFrame = false;
-    }
-    if (newFrameDist){
-       //std::thread coneCollector(&DetectCone::initializeCollection, this);
-       //coneCollector.detach();
-    }
+    std::unique_lock<std::mutex> lockCone(m_coneMutex);
+    m_coneCollector(2,objectId) = coneDistance.distance();
+    m_coneCollector(3,objectId) = 0;
+    m_lastObjectId = (m_lastObjectId<objectId)?(objectId):(m_lastObjectId);
   }
 }
 
@@ -331,25 +297,15 @@ void DetectCone::reconstruction(cv::Mat img, cv::Mat& Q, cv::Mat& disp, cv::Mat&
 }
 
 void DetectCone::convertImage(cv::Mat img, int w, int h, tiny_dnn::vec_t& data){
-  cv::Mat resized, img2;
-  adjustLighting(img, img2);
-  cv::resize(img2, resized, cv::Size(w, h));
   data.resize(w * h * 3);
   for (int c = 0; c < 3; ++c) {
     for (int y = 0; y < h; ++y) {
       for (int x = 0; x < w; ++x) {
        data[c * w * h + y * w + x] =
-         float(resized.at<cv::Vec3b>(y, x)[c] / 255.0);
+         float(img.at<cv::Vec3b>(y, x)[c] / 255.0);
       }
     }
   }
-}
-
-void DetectCone::adjustLighting(cv::Mat img, cv::Mat& outImg){
-  // cv::Scalar meanScalar = cv::mean(img);
-  // double mean = (meanScalar.val[0]+meanScalar.val[1]+meanScalar.val[2])/3;
-  // outImg = img*128/mean;
-  outImg = img;
 }
 
 void DetectCone::CNN(const std::string& dictionary, tiny_dnn::network<tiny_dnn::sequential>& model) {
@@ -377,39 +333,6 @@ void DetectCone::CNN(const std::string& dictionary, tiny_dnn::network<tiny_dnn::
   ifs >> model;
 }
 
-void DetectCone::imRegionalMax(std::vector<Cone>& cones, size_t label, cv::Mat input, int nLocMax, double threshold, int minDistBtwLocMax)
-{
-    cv::Mat scratch = input.clone();
-    for (int i = 0; i < nLocMax; i++) {
-        cv::Point location;
-        double maxVal;
-        cv::minMaxLoc(scratch, NULL, &maxVal, NULL, &location);
-        if (maxVal > threshold) {
-            int col = location.x;
-            int row = location.y;
-            Cone cone = Cone(0.0,0.0,0.0);
-            cone.m_pt = cv::Point(col, row);
-            cone.m_prob = maxVal;
-            cone.m_label = label;
-            cones.push_back(cone);
-            int r0 = (row-minDistBtwLocMax > -1 ? row-minDistBtwLocMax : 0);
-            int r1 = (row+minDistBtwLocMax < scratch.rows ? row+minDistBtwLocMax : scratch.rows-1);
-            int c0 = (col-minDistBtwLocMax > -1 ? col-minDistBtwLocMax : 0);
-            int c1 = (col+minDistBtwLocMax < scratch.cols ? col+minDistBtwLocMax : scratch.cols-1);
-            for (int r = r0; r <= r1; r++) {
-                for (int c = c0; c <= c1; c++) {
-                    if (sqrt((r-row)*(r-row)+(c-col)*(c-col)) <= minDistBtwLocMax) {
-                      scratch.at<double>(r,c) = 0.0;
-                    }
-                }
-            }
-        } else {
-            break;
-        }
-    }
-}
-
-
 cv::Point3f DetectCone::median(std::vector<cv::Point3f> vec3) {
   size_t size = vec3.size();
   float tvecan[3];
@@ -430,53 +353,6 @@ cv::Point3f DetectCone::median(std::vector<cv::Point3f> vec3) {
   }
     
   return cv::Point3f(tvecan[0],0.9f,tvecan[2]);
-}
-
-cv::Point DetectCone::pointFilter(std::vector<std::pair<cv::Point,float>> positions) {
-  size_t size = positions.size();
-  for(size_t i = 0; i < size; i++) 
-  { 
-    for(size_t j = 1; j < size - i; j++) 
-    { 
-      if(positions[j].second < positions[j - 1].second) 
-      { 
-        std::swap(positions[j], positions[j - 1]); 
-      } 
-    } 
-  } 
-  size_t size2 = size;
-  if(size > 5)
-    size2 = 5;
-  cv::Point result{0,0};
-  for(size_t i = 0; i < size2; i++){
-    result += positions[i].first;
-  }
-  result.x /= size2;
-  result.y /= size2;
-  return result;
-}
-
-cv::Point DetectCone::mean(std::vector<cv::Point> vec) {
-  cv::Point result{0,0};
-  size_t size = vec.size();
-  for(size_t i = 0; i < size; i++){
-    result += vec[i];
-  }
-  result.x /= size;
-  result.y /= size;
-  return result;
-}
-
-cv::Point3f DetectCone::mean(std::vector<cv::Point3f> vec) {
-  cv::Point3f result{0,0,0};
-  size_t size = vec.size();
-  for(size_t i = 0; i < size; i++){
-    result += vec[i];
-  }
-  result.x /= size;
-  result.y /= size;
-  result.z /= size;
-  return result;
 }
 
 void DetectCone::gather_points(
@@ -710,18 +586,6 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
       }
       int x = candidates[i].x;
       int y = candidates[i].y;
-      // probMap[maxIndex].at<double>(y,x) = maxProb;
-    // }
-    // for(size_t i = 0; i < 4; i++){
-    //   imRegionalMax(cones, i, probMap[i], 10, m_threshold, 10);
-    // }
-
-    // for(size_t i = 0; i < cones.size(); i++){
-      // int x = cones[i].m_pt.x;
-      // int y = cones[i].m_pt.y;
-      // double maxProb = cones[i].m_prob;
-      // int maxIndex = cones[i].m_label;
-
       cv::Point position(x, y);
       cv::Point3f point3D = XYZ.at<cv::Point3f>(position);
       std::string labelName = labels[maxIndex];
