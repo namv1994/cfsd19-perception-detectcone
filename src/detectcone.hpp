@@ -70,14 +70,14 @@ class DetectCone {
  private:
   void setUp(std::map<std::string, std::string> commandlineArguments);
   void blockMatching(cv::Mat&, cv::Mat, cv::Mat);
-  void reconstruction(cv::Mat, cv::Mat&, cv::Mat&, cv::Mat&, cv::Mat&);
+  void reconstruction(cv::Mat img, cv::Mat& rectified, cv::Mat& Q, cv::Mat& XYZ);
   void convertImage(cv::Mat, int, int, tiny_dnn::vec_t&);
   void CNN(const std::string&, tiny_dnn::network<tiny_dnn::sequential>&);
   void imRegionalMax(std::vector<Cone>&, size_t, cv::Mat, int, double, int);
   cv::Point3f median(std::vector<cv::Point3f> vec3);
   void gather_points(cv::Mat, std::vector<float>, std::vector<int>&, std::vector<float>&);
   void filterKeypoints(std::vector<cv::Point3f>&);
-  int xyz2xy(cv::Mat Q, cv::Point3f xyz, cv::Point2f& xy, float radius);
+  int xyz2xy(cv::Mat Q, cv::Point3f xyz, cv::Point& xy, float radius);
   int countFiles(const char*);
   void annotate(cv::Mat, int, cv::Point, int);
   void backwardDetection(cv::Mat, Eigen::MatrixXd&, int64_t);
