@@ -162,6 +162,9 @@ void DetectCone::setStateMachineStatus(cluon::data::Envelope data){
   if(state == 2){
     m_runningState = true;
   }
+  else{
+    m_runningState = false;
+  }
 }
 
 bool DetectCone::getReadyState(){
@@ -211,25 +214,16 @@ void DetectCone::getTimeStamp(const std::string path){
 }
 
 void DetectCone::checkLidarState(){
-  // if(m_offline){
-  //   if(cluon::time::toMicroseconds(m_coneTimeStamp) > 0){
-  //     // m_img = cv::imread("/opt/images/"+std::to_string(m_currentFrame)+".png");
-  //     // Eigen::MatrixXd lidarCones;
-  //     // backwardDetection(m_img, lidarCones, 0);
-  //   }
-  // }
-  // else{
-    int64_t timeDiff = m_imgTimeStamp - cluon::time::toMicroseconds(m_coneTimeStamp);
-    if ((timeDiff > m_checkLidarMilliseconds)){
-      if(m_verbose)
-        std::cout << "No lidar data received" << std::endl;
-      if(m_img.empty()){
-        return;
-      }
-      Eigen::MatrixXd lidarCones;
-      backwardDetection(m_img, lidarCones, 0);
+  int64_t timeDiff = m_imgTimeStamp - cluon::time::toMicroseconds(m_coneTimeStamp);
+  if ((timeDiff > m_checkLidarMilliseconds)){
+    if(m_verbose)
+      std::cout << "No lidar data received" << std::endl;
+    if(m_img.empty()){
+      return;
     }
-  // }
+    Eigen::MatrixXd lidarCones;
+    backwardDetection(m_img, lidarCones, 0);
+  }
 }
 
 void DetectCone::blockMatching(cv::Mat& disp, cv::Mat imgL, cv::Mat imgR){
@@ -248,6 +242,7 @@ void DetectCone::blockMatching(cv::Mat& disp, cv::Mat imgL, cv::Mat imgR){
 }
 
 void DetectCone::reconstruction(cv::Mat img, cv::Mat& Q, cv::Mat& disp, cv::Mat& rectified, cv::Mat& XYZ){
+  cluon::data::TimeStamp timestamp = cluon::time::now();
   cv::Mat mtxLeft = (cv::Mat_<double>(3, 3) <<
     349.891, 0, 334.352,
     0, 349.891, 187.937,
@@ -285,6 +280,10 @@ void DetectCone::reconstruction(cv::Mat img, cv::Mat& Q, cv::Mat& disp, cv::Mat&
   cv::remap(imgR, imgR, rmap[1][0], rmap[1][1], cv::INTER_LINEAR);
 
   blockMatching(disp, imgL, imgR);
+
+  double timeDiff = (cluon::time::toMicroseconds(cluon::time::now()) - cluon::time::toMicroseconds(timestamp))/1000;
+  std::cout << "blockMatching: " << timeDiff << "ms" << std::endl;
+  timestamp = cluon::time::now();
 
   imgL.copyTo(rectified);
 
@@ -505,7 +504,8 @@ void DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& lidarCones, int
   m_isProcessing = true;
   cluon::data::TimeStamp timestamp = cluon::time::now();
   cv::Mat disp, Q, XYZ, imgSource;
-  reconstruction(img, Q, disp, img, XYZ);
+  reconstruction(img, Q, disp, img, XYZ);;
+
   std::vector<tiny_dnn::tensor_t> inputs;
   std::vector<int> verifiedIndex;
   std::vector<cv::Point> candidates;
@@ -567,6 +567,7 @@ void DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& lidarCones, int
   if(point3Ds.size()==0){
     return;
   }
+  
   filterKeypoints(point3Ds);
 
   for(size_t i = 0; i < point3Ds.size(); i++){
@@ -592,8 +593,10 @@ void DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& lidarCones, int
       candidates.push_back(cv::Point(x,y));
     }
   }
+
   if(inputs.size()>0){
     auto prob = m_model.predict(inputs);
+
     for(size_t i = 0; i < inputs.size(); i++){
       size_t maxIndex = 0;
       double maxProb = m_threshold;
