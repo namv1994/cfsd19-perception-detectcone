@@ -1,4 +1,0 @@
-export OMP_NUM_THREADS=4
-g++ train.cpp -I ../tiny-dnn/ -std=c++14 -lpthread `pkg-config --libs --cflags opencv` -lboost_system -lboost_filesystem -fopenmp -g -O2 -ltbb -mavx -o train
-
-./train data models/model 0.005 300 256

@@ -93,7 +93,7 @@ class DetectCone {
   cluon::OD4Session &m_od4;
   float m_threshold;
   cluon::data::TimeStamp m_coneTimeStamp;
-  cluon::data::TimeStamp m_imgTimeStamp;
+  int64_t m_imgTimeStamp;
   cluon::data::TimeStamp m_start = {};
   Eigen::MatrixXd m_coneCollector;
   uint32_t m_lastObjectId;
