@@ -91,7 +91,7 @@ int32_t main(int32_t argc, char **argv) {
             currentDateTime << "0" << ptmNow->tm_sec;
         else
             currentDateTime << ptmNow->tm_sec;
-        std::string folderName = currentDateTime.str();
+        std::string folderName = "/opt/"+currentDateTime.str();
 
         std::string command;
 
@@ -123,18 +123,18 @@ int32_t main(int32_t argc, char **argv) {
                 (void)ID;
                 (void)SIZE;
 
-                command = "mkdir /opt/"+folderName;
+                command = "mkdir "+folderName;
                 system(command.c_str());
-                command = "mkdir /opt/"+folderName+"/timestamp/";
+                command = "mkdir "+folderName+"/timestamp/";
                 system(command.c_str());
-                command = "mkdir /opt/"+folderName+"/images/";
+                command = "mkdir "+folderName+"/images/";
                 system(command.c_str());
-                command = "mkdir /opt/"+folderName+"/results/";
+                command = "mkdir "+folderName+"/results/";
                 system(command.c_str());
                 detectcone.getFolderName(folderName+"/results/");
 
-                std::string filepathTimestamp = "/opt/"+folderName+"/timestamp/timestamps.txt";
-                std::string imgPath = "/opt/"+folderName+"/images/";
+                std::string filepathTimestamp = folderName+"/timestamp/timestamps.txt";
+                std::string imgPath = folderName+"/images/";
                 std::ofstream file;
                 file.open(filepathTimestamp.c_str());
                 size_t frameCounter = 0;

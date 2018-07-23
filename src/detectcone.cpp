@@ -160,7 +160,7 @@ void DetectCone::setStateMachineStatus(cluon::data::Envelope data){
 
 bool DetectCone::getReadyState(){
   if(m_count>150){
-    cv::imwrite("/opt/"+m_folderName+std::to_string(m_count)+"_ready.png", m_img);
+    cv::imwrite(m_folderName+std::to_string(m_count)+"_ready.png", m_img);
     return 1;
   }
   else
@@ -172,7 +172,7 @@ bool DetectCone::getRunningState(){
 }
 
 void DetectCone::getImgAndTimeStamp(std::pair<cluon::data::TimeStamp, cv::Mat> imgAndTimeStamp){
-  if(m_imgAndTimeStamps.size()>10){
+  if(m_imgAndTimeStamps.size()>20){
     m_imgAndTimeStamps.clear();
   }
   m_imgAndTimeStamps.push_back(imgAndTimeStamp);
@@ -664,7 +664,7 @@ void DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& lidarCones, int
 
   for(size_t i = 0; i < lidars.size(); i++){
     Cone cone(lidars[i].x-m_xShift, lidars[i].z-m_zShift, lidars[i].y-m_yShift);
-    cone.m_label = 10;
+    cone.m_label = 0;
     localCones.push_back(cone);
   }
 
@@ -676,8 +676,6 @@ void DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& lidarCones, int
     int xt = int((localCones[i].getX()+m_xShift) * float(resultResize) + resultWidth/2);
     int yt = int((localCones[i].getY()+m_zShift) * float(resultResize));
     int maxIndex = localCones[i].getLabel();
-    if(maxIndex == 10)
-      maxIndex = 0;
     if (xt >= 0 && xt <= resultWidth && yt >= 0 && yt <= resultHeight){
       cv::circle(result, cv::Point (xt,yt), 3, colors[maxIndex], -1);
     }
@@ -687,7 +685,7 @@ void DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& lidarCones, int
   cv::flip(result, result, 0);
   cv::hconcat(img,result,outImg);
 
-  std::string saveString = "/opt/"+m_folderName+std::to_string(m_currentFrame++)+"_"+std::to_string(minValue)+".png";
+  std::string saveString = m_folderName+std::to_string(m_currentFrame++)+"_"+std::to_string(minValue)+".png";
   std::thread imWriteThread(&DetectCone::saveImages,this,saveString,outImg);
   imWriteThread.detach();
 
@@ -769,9 +767,9 @@ void DetectCone::SendCollectedCones(Eigen::MatrixXd lidarCones)
   int minIndex;
   int64_t minValue;
   if(m_offline){
-    minIndex = std::max(0,int(m_currentFrame)-5);
+    minIndex = std::max(0,int(m_currentFrame)-10);
     minValue = abs(m_timeStamps[minIndex] - cluon::time::toMicroseconds(m_coneTimeStamp));
-    for (size_t i = minIndex+1; i < m_currentFrame+5; i++){
+    for (size_t i = minIndex+1; i < m_currentFrame+10; i++){
       int64_t timeDiff = abs(m_timeStamps[i]- cluon::time::toMicroseconds(m_coneTimeStamp));
       if (timeDiff<minValue){
         minIndex = i;
@@ -907,7 +905,7 @@ void DetectCone::SendMatchedContainer(std::vector<Cone> cones)
   cluon::data::TimeStamp sampleTime = m_coneTimeStamp;
   bool noConeDetected = true;
   for(uint32_t n = 0; n < cones.size(); n++){
-    if(cones[n].m_label > 0 && cones[n].m_label < 5){
+    if(cones[n].m_label > 0){
       noConeDetected = false;
     }
   }
@@ -933,7 +931,10 @@ void DetectCone::SendMatchedContainer(std::vector<Cone> cones)
     }
   }
   else{
+    uint32_t numOfOrange = 0;
     for(uint32_t n = 0; n < cones.size(); n++){
+      if(cones[n].getLabel() == 4)
+        numOfOrange++;
       opendlv::logic::sensation::Point conePoint;
       Cartesian2Spherical(cones[n].getX(), cones[n].getY(), cones[n].getZ(), conePoint);
       // if(m_lidarIsWorking){
@@ -964,6 +965,9 @@ void DetectCone::SendMatchedContainer(std::vector<Cone> cones)
         m_od4.send(coneType,sampleTime,m_senderStamp);
       }
     }
+    opendlv::logic::perception::Object object;
+    object.objectId(numOfOrange);
+    m_od4.send(object,sampleTime,m_senderStamp);
   }
   cluon::data::TimeStamp endTime = cluon::time::now();
   if(m_verbose)
