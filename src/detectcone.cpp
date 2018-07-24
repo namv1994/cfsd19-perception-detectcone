@@ -519,10 +519,19 @@ void DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& lidarCones, int
   cv::Mat result = cv::Mat::zeros(resultWidth,resultHeight,CV_8UC3);
   double resultResize = 15;
 
+  img.copyTo(imgSource);
   int rowT = 190;
   int rowB = 320;
-  cv::Mat imgRoI = img.rowRange(rowT, rowB);
-  img.copyTo(imgSource);
+  cv::Mat imgRoI = imgSource.rowRange(rowT, rowB);
+  
+  cv::Ptr<cv::ORB> detector = cv::ORB::create(100);
+  detector->setFastThreshold(m_fastThreshold);
+  detector->setPatchSize(m_orbPatchSize);
+  std::vector<cv::KeyPoint> keypoints;
+  detector->detect(imgRoI, keypoints);
+  if(keypoints.size() == 0){
+    return;
+  }
 
   for(int i = 0; i < lidarCones.cols(); i++){
     cv::Point point2D;
@@ -539,15 +548,6 @@ void DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& lidarCones, int
       cv::circle(result, cv::Point (xt,yt), 6, cv::Scalar (255,255,255), -1);
     }
     lidars.push_back(lidarCone);
-  }
-
-  cv::Ptr<cv::ORB> detector = cv::ORB::create(100);
-  detector->setFastThreshold(m_fastThreshold);
-  detector->setPatchSize(m_orbPatchSize);
-  std::vector<cv::KeyPoint> keypoints;
-  detector->detect(imgRoI, keypoints);
-  if(keypoints.size() == 0){
-    return;
   }
 
   std::vector<cv::Point3f> point3Ds;
