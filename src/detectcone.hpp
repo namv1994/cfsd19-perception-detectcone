@@ -70,17 +70,22 @@ class DetectCone {
  private:
   void setUp(std::map<std::string, std::string> commandlineArguments);
   void blockMatching(cv::Mat&, cv::Mat, cv::Mat);
-  void reconstruction(cv::Mat img, cv::Mat& rectified, cv::Mat& Q, cv::Mat& XYZ);
+  void reconstruction(cv::Mat, cv::Mat&, cv::Mat&, cv::Mat&, cv::Mat&);
   void convertImage(cv::Mat, int, int, tiny_dnn::vec_t&);
+  void adjustLighting(cv::Mat img, cv::Mat& outImg);
   void CNN(const std::string&, tiny_dnn::network<tiny_dnn::sequential>&);
   void imRegionalMax(std::vector<Cone>&, size_t, cv::Mat, int, double, int);
   cv::Point3f median(std::vector<cv::Point3f> vec3);
+  cv::Point pointFilter(std::vector<std::pair<cv::Point,float>> positions);
+  cv::Point mean(std::vector<cv::Point>);
+  cv::Point3f mean(std::vector<cv::Point3f>);
   void gather_points(cv::Mat, std::vector<float>, std::vector<int>&, std::vector<float>&);
   void filterKeypoints(std::vector<cv::Point3f>&);
-  int xyz2xy(cv::Mat Q, cv::Point3f xyz, cv::Point& xy, float radius);
+  int xyz2xy(cv::Mat Q, cv::Point3f xyz, cv::Point2f& xy, float radius);
   int countFiles(const char*);
   void annotate(cv::Mat, int, cv::Point, int);
-  void backwardDetection(cv::Mat, Eigen::MatrixXd&, int64_t);
+  void forwardDetectionORB(cv::Mat img);
+  std::vector<Cone> backwardDetection(cv::Mat, Eigen::MatrixXd&, int64_t);
   std::vector<Cone> MatchCones(std::vector<Cone>);
 
   Eigen::MatrixXd Spherical2Cartesian(double, double, double);
@@ -93,7 +98,7 @@ class DetectCone {
   cluon::OD4Session &m_od4;
   float m_threshold;
   cluon::data::TimeStamp m_coneTimeStamp;
-  int64_t m_imgTimeStamp;
+  cluon::data::TimeStamp m_imgTimeStamp;
   cluon::data::TimeStamp m_start = {};
   Eigen::MatrixXd m_coneCollector;
   uint32_t m_lastObjectId;
@@ -110,6 +115,7 @@ class DetectCone {
   bool m_offline;
   bool m_annotate;
   bool m_verbose;
+  bool m_forwardDetection;
   bool m_runningState;
   tiny_dnn::network<tiny_dnn::sequential> m_model;
   bool m_lidarIsWorking;
@@ -128,7 +134,6 @@ class DetectCone {
   std::string m_folderName;
   float m_maxZ;
   std::ofstream m_file;
-  bool m_isProcessing;
   
   const double DEG2RAD = 0.017453292522222; // PI/180.0
   const double RAD2DEG = 57.295779513082325; // 1.0 / DEG2RAD;

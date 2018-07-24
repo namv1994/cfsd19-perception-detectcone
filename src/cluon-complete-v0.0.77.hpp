@@ -1878,7 +1878,7 @@ inline size_t LiteralString::parse(const char* s, size_t n, SemanticValues& sv, 
 }
 
 inline size_t TokenBoundary::parse(const char* s, size_t n, SemanticValues& sv, Context& c, any& dt) const {
-    c.in_token = true;
+	c.in_token = true;
     auto se = make_scope_exit([&]() { c.in_token = false; });
     const auto& rule = *ope_;
     auto len = rule.parse(s, n, sv, c, dt);
