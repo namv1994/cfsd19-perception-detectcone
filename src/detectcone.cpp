@@ -163,9 +163,9 @@ void DetectCone::setStateMachineStatus(cluon::data::Envelope data){
   if(state == 2){
     m_runningState = true;
   }
-  // else{
-  //   m_runningState = false;
-  // }
+  else{
+    m_runningState = false;
+  }
 }
 
 bool DetectCone::getReadyState(){
@@ -254,13 +254,14 @@ void DetectCone::blockMatching(cv::Mat& disp, cv::Mat imgL, cv::Mat imgR){
 
   cv::Ptr<cv::StereoBM> sbmL = cv::StereoBM::create(); 
   sbmL->setBlockSize(19);
-  sbmL->setNumDisparities(32);
+  sbmL->setNumDisparities(16);
+  sbmL->setUniquenessRatio(15);
   sbmL->compute(grayL, grayR, dispL);
 
   disp = dispL/16;
 }
 
-void DetectCone::reconstruction(cv::Mat img, cv::Mat& Q, cv::Mat& disp, cv::Mat& rectified, cv::Mat& XYZ){
+void DetectCone::reconstruction(cv::Mat img, cv::Mat& Q, cv::Mat& rectified, cv::Mat& XYZ){
   cv::Mat mtxLeft = (cv::Mat_<double>(3, 3) <<
     349.891, 0, 334.352,
     0, 349.891, 187.937,
@@ -297,6 +298,7 @@ void DetectCone::reconstruction(cv::Mat img, cv::Mat& Q, cv::Mat& disp, cv::Mat&
   cv::remap(imgL, imgL, rmap[0][0], rmap[0][1], cv::INTER_LINEAR);
   cv::remap(imgR, imgR, rmap[1][0], rmap[1][1], cv::INTER_LINEAR);
 
+  cv::Mat disp;
   blockMatching(disp, imgL, imgR);
 
   imgL.copyTo(rectified);
@@ -305,9 +307,8 @@ void DetectCone::reconstruction(cv::Mat img, cv::Mat& Q, cv::Mat& disp, cv::Mat&
 }
 
 void DetectCone::convertImage(cv::Mat img, int w, int h, tiny_dnn::vec_t& data){
-  cv::Mat resized, img2;
-  adjustLighting(img, img2);
-  cv::resize(img2, resized, cv::Size(w, h));
+  cv::Mat resized;
+  cv::resize(img, resized, cv::Size(w, h));
   data.resize(w * h * 3);
   for (int c = 0; c < 3; ++c) {
     for (int y = 0; y < h; ++y) {
@@ -317,13 +318,6 @@ void DetectCone::convertImage(cv::Mat img, int w, int h, tiny_dnn::vec_t& data){
       }
     }
   }
-}
-
-void DetectCone::adjustLighting(cv::Mat img, cv::Mat& outImg){
-  // cv::Scalar meanScalar = cv::mean(img);
-  // double mean = (meanScalar.val[0]+meanScalar.val[1]+meanScalar.val[2])/3;
-  // outImg = img*128/mean;
-  outImg = img;
 }
 
 void DetectCone::CNN(const std::string& dictionary, tiny_dnn::network<tiny_dnn::sequential>& model) {
@@ -404,53 +398,6 @@ cv::Point3f DetectCone::median(std::vector<cv::Point3f> vec3) {
   }
     
   return cv::Point3f(tvecan[0],0.9f,tvecan[2]);
-}
-
-cv::Point DetectCone::pointFilter(std::vector<std::pair<cv::Point,float>> positions) {
-  size_t size = positions.size();
-  for(size_t i = 0; i < size; i++) 
-  { 
-    for(size_t j = 1; j < size - i; j++) 
-    { 
-      if(positions[j].second < positions[j - 1].second) 
-      { 
-        std::swap(positions[j], positions[j - 1]); 
-      } 
-    } 
-  } 
-  size_t size2 = size;
-  if(size > 5)
-    size2 = 5;
-  cv::Point result{0,0};
-  for(size_t i = 0; i < size2; i++){
-    result += positions[i].first;
-  }
-  result.x /= size2;
-  result.y /= size2;
-  return result;
-}
-
-cv::Point DetectCone::mean(std::vector<cv::Point> vec) {
-  cv::Point result{0,0};
-  size_t size = vec.size();
-  for(size_t i = 0; i < size; i++){
-    result += vec[i];
-  }
-  result.x /= size;
-  result.y /= size;
-  return result;
-}
-
-cv::Point3f DetectCone::mean(std::vector<cv::Point3f> vec) {
-  cv::Point3f result{0,0,0};
-  size_t size = vec.size();
-  for(size_t i = 0; i < size; i++){
-    result += vec[i];
-  }
-  result.x /= size;
-  result.y /= size;
-  result.z /= size;
-  return result;
 }
 
 void DetectCone::gather_points(
@@ -546,7 +493,7 @@ void DetectCone::filterKeypoints(std::vector<cv::Point3f>& point3Ds){
   }
 }
 
-int DetectCone::xyz2xy(cv::Mat Q, cv::Point3f xyz, cv::Point2f& xy, float radius){
+int DetectCone::xyz2xy(cv::Mat Q, cv::Point3f xyz, cv::Point& xy, float radius){
   float X = xyz.x;
   float Y = xyz.y;
   float Z = xyz.z;
@@ -556,8 +503,8 @@ int DetectCone::xyz2xy(cv::Mat Q, cv::Point3f xyz, cv::Point2f& xy, float radius
   float a = float(Q.at<double>(3,2));
   float b = float(Q.at<double>(3,3));
   float d = (f - Z * b ) / ( Z * a);
-  xy.x = X * ( d * a + b ) + Cx;
-  xy.y = Y * ( d * a + b ) + Cy;
+  xy.x = int(X * ( d * a + b ) + Cx);
+  xy.y = int(Y * ( d * a + b ) + Cy);
   return int(radius * ( d * a + b ));
 }
 
@@ -620,8 +567,8 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
   cv::Mat result = cv::Mat::zeros(resultWidth,resultHeight,CV_8UC3);
   double resultResize = 15;
 
-  cv::Mat Q, disp, XYZ, imgRoI, imgSource;
-  reconstruction(img, Q, disp, img, XYZ);
+  cv::Mat Q, XYZ, imgRoI, imgSource;
+  reconstruction(img, Q, img, XYZ);
   
   img.copyTo(imgSource);
   int rowT = 190;
@@ -637,7 +584,7 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
   cv::Mat probMap[4] = cv::Mat::zeros(m_height, m_width, CV_64F);
   
   std::vector<cv::Point3f> point3Ds;
-  cv::Point2f point2D;
+  cv::Point point2D;
   std::vector<cv::Point> positions;
   for(size_t i = 0; i < keypoints.size(); i++){
     cv::Point position(int(keypoints[i].pt.x), int(keypoints[i].pt.y)+rowT);
@@ -652,8 +599,8 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
   filterKeypoints(point3Ds);
   for(size_t i = 0; i < point3Ds.size(); i++){
     int radius = xyz2xy(Q, point3Ds[i], point2D, 0.3f);
-    int x = int(point2D.x);
-    int y = int(point2D.y);
+    int x = point2D.x;
+    int y = point2D.y;
 
     cv::Rect roi;
     roi.x = std::max(x - radius, 0);
@@ -701,7 +648,7 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
       cv::Point position(x, y);
       cv::Point3f point3D = XYZ.at<cv::Point3f>(position);
       std::string labelName = labels[maxIndex];
-      cv::Point2f position_tmp;
+      cv::Point position_tmp;
       int radius = xyz2xy(Q, point3D, position_tmp, 0.3f);
 
       if(radius<=0){
@@ -753,8 +700,8 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
 std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& lidarCones, int64_t minValue){
   //Given RoI in 3D world, project back to the camera frame and then detect
   cluon::data::TimeStamp timestamp = cluon::time::now();
-  cv::Mat disp, Q, XYZ, imgSource;
-  reconstruction(img, Q, disp, img, XYZ);
+  cv::Mat Q, XYZ, imgSource;
+  reconstruction(img, Q, img, XYZ);
   std::vector<tiny_dnn::tensor_t> inputs;
   std::vector<int> verifiedIndex;
   std::vector<cv::Vec3i> porperty;
@@ -799,13 +746,13 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
   filterKeypoints(point3Ds);
 
   for(int i = 0; i < lidarCones.cols(); i++){
-    cv::Point2f point2D, cameraPoint2D;
+    cv::Point point2D, cameraPoint2D;
     Cone cone = Cone(lidarCones(0,i),lidarCones(1,i),lidarCones(2,i));
     cone.m_label = 0;
     cv::Point3f lidarCone(float(m_xShift+lidarCones(0,i)), float(m_yShift+lidarCones(2,i)), float(m_zShift+lidarCones(1,i)));
     int radius = xyz2xy(Q, lidarCone, point2D, 0.5f);
-    int x = int(point2D.x);
-    int y = int(point2D.y);
+    int x = point2D.x;
+    int y = point2D.y;
     cv::Rect roi;
     roi.x = std::max(x - radius, 0);
     roi.y = std::max(y - radius, 0);
