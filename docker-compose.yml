@@ -64,7 +64,7 @@ services:
         command: "cfsd18-perception-detectcone --cid=${CID} --name=cam0 --width=2560 --height=720 --bpp=24 --threshold=0.5 
         --timeDiffMilliseconds=40 --separationTimeMs=20 --checkLidarMilliseconds=1000 --senderStamp=118 --attentionSenderStamp=116 
         --offline=1 --annotate=0 --stateMachineId=1401 --readyStateMachine=1 --forwardDetection=0 --fastThreshold=7 --orbPatchSize=15
-        --matchDistance=1.5 --xShift=0.15 --yShift=1 --zShift=1.3"
+        --matchDistance=1.5"
 
     # cfsd18-sensation-attention:
     #     image: "chalmersfsd/cfsd18-sensation-attention:pre-release-69baa73"

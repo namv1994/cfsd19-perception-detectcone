@@ -76,9 +76,6 @@ void DetectCone::setUp(std::map<std::string, std::string> commandlineArguments)
   m_fastThreshold = static_cast<uint32_t>(std::stoi(commandlineArguments["fastThreshold"]));
   m_matchDistance = static_cast<float>(std::stof(commandlineArguments["matchDistance"]));
   m_orbPatchSize = static_cast<uint32_t>(std::stoi(commandlineArguments["orbPatchSize"]));
-  m_xShift = static_cast<double>(std::stod(commandlineArguments["xShift"]));
-  m_yShift = static_cast<double>(std::stod(commandlineArguments["yShift"]));
-  m_zShift = static_cast<double>(std::stod(commandlineArguments["zShift"]));
 
   if(m_annotate){
     std::string fileName = "/opt/annotations/", command;
