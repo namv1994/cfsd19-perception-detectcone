@@ -96,7 +96,7 @@ int32_t main(int32_t argc, char **argv) {
         std::string command;
 
         if(offline){
-            std::string fileName = "/opt/replay/";
+            std::string fileName = "/opt/replay";
             std::ifstream infile(fileName);
             if(infile.good()){
                 command = "rm -r "+fileName;
@@ -131,7 +131,7 @@ int32_t main(int32_t argc, char **argv) {
                 system(command.c_str());
                 command = "mkdir "+folderName+"/results/";
                 system(command.c_str());
-                detectcone.getFolderName(folderName+"/results/");
+                detectcone.getFolderName(folderName+"/results");
 
                 std::string filepathTimestamp = folderName+"/timestamp/timestamps.txt";
                 std::string imgPath = folderName+"/images/";
