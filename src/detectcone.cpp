@@ -46,8 +46,8 @@ DetectCone::DetectCone(std::map<std::string, std::string> commandlineArguments, 
 , m_width(672)
 , m_height(376)
 , m_xShift(0)//0
-, m_yShift(0.833)//0.833
-, m_zShift(1.35)//1.872
+, m_yShift(0.9)//0.833
+, m_zShift(1.1)//1.872
 , m_fastThreshold(20)
 , m_matchDistance(1.5)
 , m_orbPatchSize(31)
@@ -725,7 +725,7 @@ std::vector<Cone> DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& li
   int rowB = 320;
   cv::Mat imgRoI = imgSource.rowRange(rowT, rowB);
 
-  cv::Ptr<cv::ORB> detector = cv::ORB::create();
+  cv::Ptr<cv::ORB> detector = cv::ORB::create(200);
   detector->setFastThreshold(m_fastThreshold);
   detector->setPatchSize(m_orbPatchSize);
   std::vector<cv::KeyPoint> keypoints;
