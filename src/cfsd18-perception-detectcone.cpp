@@ -137,7 +137,7 @@ int32_t main(int32_t argc, char **argv) {
                 std::string imgPath = folderName+"/images/";
                 std::ofstream file;
                 file.open(filepathTimestamp.c_str());
-                size_t frameCounter = 0;
+                size_t frameCounter = 0, readyCounter = 0;
                 
                 std::unique_ptr<cluon::SharedMemory> sharedMemory(new cluon::SharedMemory{NAME});
                 if (sharedMemory && sharedMemory->valid()) {
@@ -152,7 +152,6 @@ int32_t main(int32_t argc, char **argv) {
                     image->imageData = sharedMemory->data();
                     image->imageDataOrigin = image->imageData;
                     sharedMemory->unlock();
-                    bool readyState = false;
                     bool runningState = false;
                     while (od4.isRunning()) {
                         // The shared memory uses a pthread broadcast to notify us; just sleep to get awaken up.
@@ -162,16 +161,10 @@ int32_t main(int32_t argc, char **argv) {
                         image->imageData = sharedMemory->data();
                         image->imageDataOrigin = image->imageData;
                         cv::Mat img = cv::cvarrToMat(image); 
-
-                        cluon::data::TimeStamp imgTimestamp = cluon::time::now();
                         sharedMemory->unlock();
                         cv::waitKey(1);
 
-                        std::pair<cluon::data::TimeStamp, cv::Mat> imgAndTimeStamp(imgTimestamp, img);
-                        detectcone.getImgAndTimeStamp(imgAndTimeStamp);
-                        detectcone.checkLidarState();
-
-                        if(readyState){
+                        if(readyCounter++ > 150){
                             if(!sentReadySignal){
                                 std::cout << "detectcone module is ready!" << std::endl;
                                 sentReadySignal = true;
@@ -180,12 +173,14 @@ int32_t main(int32_t argc, char **argv) {
                             ssm.code(1);
                             cluon::data::TimeStamp sampleTime = cluon::time::now();
                             od4.send(ssm, sampleTime, senderStamp);
-                        }else{
-                            readyState = detectcone.getReadyState();
                         }
 
                         if(runningState){
+                            cluon::data::TimeStamp imgTimestamp = cluon::time::now();
                             int64_t ts = cluon::time::toMicroseconds(imgTimestamp);
+                            std::pair<int64_t, cv::Mat> imgAndTimeStamp(ts, img);
+                            detectcone.setTimeStamp(imgAndTimeStamp);
+                            detectcone.checkLidarState();
                             file << std::setprecision(19) << ts << std::endl;
                             std::string saveString = imgPath + std::to_string(frameCounter++) + ".png";
                             std::thread imWriteThread(&DetectCone::saveImages,&detectcone,saveString,img);

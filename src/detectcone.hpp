@@ -59,9 +59,8 @@ class DetectCone {
   void nextContainer(cluon::data::Envelope data);
   void receiveCombinedMessage(cluon::data::TimeStamp currentFrameTime,std::map<int,ConePackage> currentFrame);
   void checkLidarState();
-  bool getReadyState();
   bool getRunningState();
-  void getImgAndTimeStamp(std::pair<cluon::data::TimeStamp, cv::Mat>);
+  void setTimeStamp(std::pair<int64_t, cv::Mat>);
   void getTimeStamp(const std::string);
   void setStateMachineStatus(cluon::data::Envelope data); 
   void getFolderName(const std::string folderName);
@@ -81,7 +80,7 @@ class DetectCone {
   int countFiles(const char*);
   void annotate(cv::Mat, int, cv::Point, int);
   void forwardDetectionORB(cv::Mat img);
-  std::vector<Cone> backwardDetection(cv::Mat, Eigen::MatrixXd&, int64_t);
+  void backwardDetection(cv::Mat, Eigen::MatrixXd&, int64_t);
   std::vector<Cone> MatchCones(std::vector<Cone>);
 
   Eigen::MatrixXd Spherical2Cartesian(double, double, double);
@@ -94,7 +93,7 @@ class DetectCone {
   cluon::OD4Session &m_od4;
   float m_threshold;
   cluon::data::TimeStamp m_coneTimeStamp;
-  cluon::data::TimeStamp m_imgTimeStamp;
+  int64_t m_imgTimeStamp;
   cluon::data::TimeStamp m_start = {};
   Eigen::MatrixXd m_coneCollector;
   uint32_t m_lastObjectId;
@@ -103,7 +102,7 @@ class DetectCone {
   std::mutex m_stateMachineMutex;
   bool m_recievedFirstImg;
   cv::Mat m_img;
-  std::vector<std::pair<cluon::data::TimeStamp, cv::Mat>> m_imgAndTimeStamps;
+  std::vector<std::pair<int64_t, cv::Mat>> m_imgAndTimeStamps;
   std::vector<std::pair<bool,Cone>> m_coneFrame = {};
   std::vector<int64_t> m_timeStamps;
   int m_count;

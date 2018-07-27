@@ -99,7 +99,7 @@ bool Cone::checkColor(){
     m_label=3;
     currentColorCount = m_smallOrangeCount;
   }
-  else if((float)m_bigOrangeCount/totalDetected>0.70f){
+  else if((float)m_bigOrangeCount/totalDetected>0.0f){
     m_label=4;
     currentColorCount = m_bigOrangeCount;
   }
