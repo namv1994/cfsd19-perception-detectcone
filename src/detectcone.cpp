@@ -754,8 +754,8 @@ void DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& lidarCones, int
     roi.height = std::min(std::max(y + radius,0), img.rows) - roi.y;
 
     // radius = xyz2xy(Q, lidarCone, point2D, 0.3f);
-    if (0 > roi.x || 0 >= roi.width || roi.x + roi.width > img.cols || 0 > roi.y || 0 >= roi.height || roi.y + roi.height > img.rows)
-      continue;
+    if (0 > roi.x || 0 >= roi.width || roi.x + roi.width > img.cols || 0 > roi.y || 0 >= roi.height || roi.y + roi.height > img.rows || radius <= 0)
+    {}
     else{
       cv::circle(img, cv::Point(x,y), radius, cv::Scalar (255,255,255), 2);
       int minIndex = -1;
@@ -799,15 +799,16 @@ void DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& lidarCones, int
     }
     localCones.push_back(cone);
   }
+
   if(xDiffs.size()>0){
     double sum = std::accumulate(std::begin(xDiffs), std::end(xDiffs), 0.0);
-    if(std::abs(0-sum/xDiffs.size())<0.2)
+    if(std::abs(0-sum/xDiffs.size())<0.3)
       m_xShift = (m_xShift+sum/xDiffs.size())/2;
     sum = std::accumulate(std::begin(yDiffs), std::end(yDiffs), 0.0);
-    if(std::abs(0.9-sum/yDiffs.size())<0.2)
+    if(std::abs(0.9-sum/yDiffs.size())<0.3)
       m_yShift = (m_yShift+sum/yDiffs.size())/2;
     sum = std::accumulate(std::begin(zDiffs), std::end(zDiffs), 0.0);
-    if(std::abs(1.1-sum/zDiffs.size())<0.4)
+    if(std::abs(1.1-sum/zDiffs.size())<0.5)
       m_zShift = (m_zShift+sum/zDiffs.size())/2;
     m_file << m_xShift << " " << m_yShift << " " << m_zShift << std::endl;
   }
@@ -995,12 +996,11 @@ void DetectCone::SendCollectedCones(Eigen::MatrixXd lidarCones)
       }
       m_img = m_imgAndTimeStamps[minIndex].second;
     }
-    
+    m_currentFrame = minIndex;
+    minValue /= 1000;
     if(m_verbose){
       std::cout << "minIndex: " << minIndex << ", minTimeStampDiff: " << minValue << "ms" << std::endl;
     }
-    m_currentFrame = minIndex;
-    minValue /= 1000;
     if(minValue < 100){
       backwardDetection(m_img, lidarCones, minValue);
     }
@@ -1107,6 +1107,8 @@ std::vector<Cone> DetectCone::MatchCones(std::vector<Cone> cones){
 
 void DetectCone::SendMatchedContainer(std::vector<Cone> cones)
 {
+  if(cones.size() == 0) 
+    return;
   cluon::data::TimeStamp sampleTime = m_coneTimeStamp;
   bool noConeDetected = true;
   for(uint32_t n = 0; n < cones.size(); n++){
@@ -1176,9 +1178,6 @@ void DetectCone::SendMatchedContainer(std::vector<Cone> cones)
     object.objectId(numOfOrange);
     m_od4.send(object,sampleTime,m_senderStamp);
   }
-  cluon::data::TimeStamp endTime = cluon::time::now();
-  if(m_verbose)
-    std::cout << "Delta in microseconds (final)" << cluon::time::deltaInMicroseconds(endTime,m_start) << std::endl;
 }
 
 void DetectCone::saveImages(std::string saveString, cv::Mat img){
