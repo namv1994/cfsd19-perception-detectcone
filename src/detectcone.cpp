@@ -807,11 +807,11 @@ void DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& lidarCones, int
       m_zShift = (m_zShift+sum/zDiffs.size())/2;
     m_file << m_xShift << " " << m_yShift << " " << m_zShift << std::endl;
   }
-  // else{
-  //   m_xShift = 0;
-  //   m_yShift = 0.9;
-  //   m_zShift = 1.1;
-  // }
+  else{
+    m_xShift = 0;
+    m_yShift = 0.9;
+    m_zShift = 1.1;
+  }
 
   if(inputs.size()>0){
     auto prob = m_model.predict(inputs);
