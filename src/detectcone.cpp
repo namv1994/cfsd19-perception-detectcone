@@ -754,43 +754,47 @@ void DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& lidarCones, int
     roi.height = std::min(std::max(y + radius,0), img.rows) - roi.y;
 
     // radius = xyz2xy(Q, lidarCone, point2D, 0.3f);
-    cv::circle(img, cv::Point(x,y), radius, cv::Scalar (255,255,255), 2);
-    int minIndex = -1;
-    float minDistance = 1.5f;
-    for(size_t j = 0; j < point3Ds.size(); j++){
-      int radius_tmp = xyz2xy(Q, point3Ds[j], cameraPoint2D, 0.3f);
-      if(cameraPoint2D.x >= roi.x && cameraPoint2D.x <= roi.x+roi.width && cameraPoint2D.y >= roi.y && cameraPoint2D.y <= roi.y+roi.height){
-        float distance = static_cast<float>(std::pow(std::pow(point3Ds[j].x-lidarCone.x,2)+std::pow(point3Ds[j].y-lidarCone.y,2)+std::pow(point3Ds[j].z-lidarCone.z,2),0.5));
-        if(distance<minDistance){
-          minIndex = int(j);
-          minDistance = distance;
-          radius = radius_tmp;
-          point2D = cameraPoint2D;
+    if (0 > roi.x || 0 >= roi.width || roi.x + roi.width > img.cols || 0 > roi.y || 0 >= roi.height || roi.y + roi.height > img.rows)
+      continue;
+    else{
+      cv::circle(img, cv::Point(x,y), radius, cv::Scalar (255,255,255), 2);
+      int minIndex = -1;
+      float minDistance = 1.5f;
+      for(size_t j = 0; j < point3Ds.size(); j++){
+        int radius_tmp = xyz2xy(Q, point3Ds[j], cameraPoint2D, 0.3f);
+        if(cameraPoint2D.x >= roi.x && cameraPoint2D.x <= roi.x+roi.width && cameraPoint2D.y >= roi.y && cameraPoint2D.y <= roi.y+roi.height){
+          float distance = static_cast<float>(std::pow(std::pow(point3Ds[j].x-lidarCone.x,2)+std::pow(point3Ds[j].y-lidarCone.y,2)+std::pow(point3Ds[j].z-lidarCone.z,2),0.5));
+          if(distance<minDistance){
+            minIndex = int(j);
+            minDistance = distance;
+            radius = radius_tmp;
+            point2D = cameraPoint2D;
+          }
         }
       }
-    }
-    if(minIndex > -1){
-      // m_file << lidarCones(0,i) << " " << lidarCones(2,i) << " " << lidarCones(1,i) << " " << point3Ds[minIndex].x << " " << point3Ds[minIndex].y << " " << point3Ds[minIndex].z << std::endl;
-      xDiffs.push_back(point3Ds[minIndex].x-lidarCones(0,i));
-      yDiffs.push_back(point3Ds[minIndex].y-lidarCones(2,i));
-      zDiffs.push_back(point3Ds[minIndex].z-lidarCones(1,i));
-      point3Ds.erase(point3Ds.begin() + minIndex);
-      x = int(point2D.x);
-      y = int(point2D.y);
-      roi.x = std::max(x - radius, 0);
-      roi.y = std::max(y - radius, 0);
-      roi.width = std::min(std::max(x + radius,0), img.cols) - roi.x;
-      roi.height = std::min(std::max(y + radius,0), img.rows) - roi.y;
-    
-      if (0 >= roi.x || 0 >= roi.width || roi.x + roi.width > img.cols || 0 >= roi.y || 0 >= roi.height || roi.y + roi.height >= img.rows || radius <= 0){ 
-      }
-      else{
-        cv::Mat patchImg = imgSource(roi);
-        tiny_dnn::vec_t data;
-        convertImage(patchImg, m_patchSize, m_patchSize, data);
-        inputs.push_back({data});
-        verifiedIndex.push_back(i);
-        porperty.push_back(cv::Vec3i(x,y,radius));
+      if(minIndex > -1){
+        // m_file << lidarCones(0,i) << " " << lidarCones(2,i) << " " << lidarCones(1,i) << " " << point3Ds[minIndex].x << " " << point3Ds[minIndex].y << " " << point3Ds[minIndex].z << std::endl;
+        xDiffs.push_back(point3Ds[minIndex].x-lidarCones(0,i));
+        yDiffs.push_back(point3Ds[minIndex].y-lidarCones(2,i));
+        zDiffs.push_back(point3Ds[minIndex].z-lidarCones(1,i));
+        point3Ds.erase(point3Ds.begin() + minIndex);
+        x = int(point2D.x);
+        y = int(point2D.y);
+        roi.x = std::max(x - radius, 0);
+        roi.y = std::max(y - radius, 0);
+        roi.width = std::min(std::max(x + radius,0), img.cols) - roi.x;
+        roi.height = std::min(std::max(y + radius,0), img.rows) - roi.y;
+      
+        if (0 >= roi.x || 0 >= roi.width || roi.x + roi.width > img.cols || 0 >= roi.y || 0 >= roi.height || roi.y + roi.height >= img.rows || radius <= 0){ 
+        }
+        else{
+          cv::Mat patchImg = imgSource(roi);
+          tiny_dnn::vec_t data;
+          convertImage(patchImg, m_patchSize, m_patchSize, data);
+          inputs.push_back({data});
+          verifiedIndex.push_back(i);
+          porperty.push_back(cv::Vec3i(x,y,radius));
+        }
       }
     }
     localCones.push_back(cone);
