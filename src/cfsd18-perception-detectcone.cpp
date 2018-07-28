@@ -152,7 +152,7 @@ int32_t main(int32_t argc, char **argv) {
                     image->imageData = sharedMemory->data();
                     image->imageDataOrigin = image->imageData;
                     sharedMemory->unlock();
-                    bool runningState = false;
+                    bool drivingState = false;
                     while (od4.isRunning()) {
                         // The shared memory uses a pthread broadcast to notify us; just sleep to get awaken up.
                         sharedMemory->wait();
@@ -175,7 +175,7 @@ int32_t main(int32_t argc, char **argv) {
                             od4.send(ssm, sampleTime, senderStamp);
                         }
 
-                        if(runningState){
+                        if(drivingState){
                             cluon::data::TimeStamp imgTimestamp = cluon::time::now();
                             int64_t ts = cluon::time::toMicroseconds(imgTimestamp);
                             std::pair<int64_t, cv::Mat> imgAndTimeStamp(ts, img);
@@ -186,7 +186,7 @@ int32_t main(int32_t argc, char **argv) {
                             std::thread imWriteThread(&DetectCone::saveImages,&detectcone,saveString,img);
                             imWriteThread.detach();
                         }else{
-                            runningState = detectcone.getRunningState();
+                            drivingState = detectcone.getdrivingState();
                         }                       
                     }
                     file.close();

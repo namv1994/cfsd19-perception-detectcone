@@ -59,7 +59,7 @@ class DetectCone {
   void nextContainer(cluon::data::Envelope data);
   void receiveCombinedMessage(cluon::data::TimeStamp currentFrameTime,std::map<int,ConePackage> currentFrame);
   void checkLidarState();
-  bool getRunningState();
+  bool getdrivingState();
   void setTimeStamp(std::pair<int64_t, cv::Mat>);
   void getTimeStamp(const std::string);
   void setStateMachineStatus(cluon::data::Envelope data); 
@@ -111,7 +111,8 @@ class DetectCone {
   bool m_annotate;
   bool m_verbose;
   bool m_forwardDetection;
-  bool m_runningState;
+  bool m_drivingState;
+  bool m_readyStateMachine;
   tiny_dnn::network<tiny_dnn::sequential> m_model;
   bool m_lidarIsWorking;
   int64_t m_checkLidarMilliseconds;
