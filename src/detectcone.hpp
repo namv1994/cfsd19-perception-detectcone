@@ -106,6 +106,7 @@ class DetectCone {
   std::vector<std::pair<bool,Cone>> m_coneFrame = {};
   std::vector<int64_t> m_timeStamps;
   int m_count;
+  int m_count2;
   uint32_t m_currentFrame;
   bool m_offline;
   bool m_annotate;

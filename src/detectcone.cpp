@@ -33,6 +33,7 @@ DetectCone::DetectCone(std::map<std::string, std::string> commandlineArguments, 
 , m_imgAndTimeStamps()
 , m_timeStamps()
 , m_count(0)
+, m_count2(0)
 , m_currentFrame(0)
 , m_offline(false)
 , m_annotate(false)
@@ -171,8 +172,9 @@ void DetectCone::setStateMachineStatus(cluon::data::Envelope data){
 }
 
 bool DetectCone::getdrivingState(){
-  if(m_readyStateMachine)
-    return true;
+  if(m_readyStateMachine){
+    m_drivingState = true;
+  }
   return m_drivingState;
 }
 
@@ -982,14 +984,15 @@ void DetectCone::backwardDetection(cv::Mat img, Eigen::MatrixXd& lidarCones, int
         if(keypoints.size() > 0){
           for(size_t j = 0; j < keypoints.size(); j++){
             cv::Point position(int(keypoints[j].pt.x*resizeWidth+roi.x), int(keypoints[j].pt.y*resizeHeight+roi.y));
-            // if(position.x >= 0 && position.x <= img.cols && position.y >= 0 && position.y <= img.rows){
-              cv::Point3f point3D = XYZ.at<cv::Point3f>(position);
-              if(point3D.y > 0.7 && point3D.y < 0.9 && point3D.z > 0 && point3D.z < m_maxZ){
-                point3Ds.push_back(point3D);
-                positions.push_back(position);
-              }
-            // }
+            cv::Point3f point3D = XYZ.at<cv::Point3f>(position);
+            if(point3D.y > 0.7 && point3D.y < 0.9 && point3D.z > 0 && point3D.z < m_maxZ){
+              point3Ds.push_back(point3D);
+              positions.push_back(position);
+            }
+            else
+              cv::circle(imgRoI, cv::Point(int(keypoints[j].pt.x*resizeWidth), int(keypoints[j].pt.y*resizeHeight)), 1, cv::Scalar (255,255,255), -1);
           }
+          cv::imwrite("/opt/tmp/"+std::to_string(m_count2++)+".png",imgRoI);
         }
       }
     // }
