@@ -1397,15 +1397,9 @@ void DetectCone::SendMatchedContainer(std::vector<Cone> cones)
     m_od4.send(coneType,sampleTime,m_senderStamp);
     std::cout << "sent 666: " << m_currentFrame << std::endl;
     
-    //num of orange cones
     opendlv::logic::perception::Object object;
     object.objectId(0);
     m_od4.send(object,sampleTime,m_senderStamp);
-
-    //num of cones
-    opendlv::proxy::SwitchStateReading stateReading;
-    stateReading.state(0);
-    m_od4.send(stateReading,sampleTime,m_senderStamp);
   }
   else{
     uint32_t numOfOrange = 0;
@@ -1443,15 +1437,9 @@ void DetectCone::SendMatchedContainer(std::vector<Cone> cones)
         m_od4.send(coneType,sampleTime,m_senderStamp);
       }
     }
-    //num of orange cones
     opendlv::logic::perception::Object object;
     object.objectId(numOfOrange);
     m_od4.send(object,sampleTime,m_senderStamp);
-
-    //num of cones
-    opendlv::proxy::SwitchStateReading stateReading;
-    stateReading.state(int(cones.size()));
-    m_od4.send(stateReading,sampleTime,m_senderStamp);
   }
 }
 
