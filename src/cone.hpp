@@ -60,8 +60,7 @@ class Cone{
     int m_noDetectionCount = 0;
     int m_blueCount = 0;
     int m_yellowCount = 0;
-    int m_smallOrangeCount = 0;
-    int m_bigOrangeCount = 0;
+    int m_orangeCount = 0;
 };
 
 #endif
