@@ -57,18 +57,18 @@ find_package(Threads REQUIRED)
 # Extract cluon-msc from cluon-complete.hpp.
 add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/cluon-msc
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_CURRENT_SOURCE_DIR}/src/${CLUON_COMPLETE} ${CMAKE_BINARY_DIR}/cluon-complete.hpp
+    COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_CURRENT_SOURCE_DIR}/include/${CLUON_COMPLETE} ${CMAKE_BINARY_DIR}/cluon-complete.hpp
     COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_BINARY_DIR}/cluon-complete.hpp ${CMAKE_BINARY_DIR}/cluon-complete.cpp
     COMMAND ${CMAKE_CXX_COMPILER} -o ${CMAKE_BINARY_DIR}/cluon-msc ${CMAKE_BINARY_DIR}/cluon-complete.cpp -std=c++14 -pthread -D HAVE_CLUON_MSC
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/${CLUON_COMPLETE})
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/include/${CLUON_COMPLETE})
 
 ################################################################################
 # Generate opendlv-standard-message-set.{hpp,cpp} from ${OPENDLV_STANDARD_MESSAGE_SET} file.
 add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/opendlv-standard-message-set.cpp
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    COMMAND ${CMAKE_BINARY_DIR}/cluon-msc --cpp-sources --cpp-add-include-file=opendlv-standard-message-set.hpp --out=${CMAKE_BINARY_DIR}/opendlv-standard-message-set.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/${OPENDLV_STANDARD_MESSAGE_SET}
-    COMMAND ${CMAKE_BINARY_DIR}/cluon-msc --cpp-headers --out=${CMAKE_BINARY_DIR}/opendlv-standard-message-set.hpp ${CMAKE_CURRENT_SOURCE_DIR}/src/${OPENDLV_STANDARD_MESSAGE_SET}
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/${OPENDLV_STANDARD_MESSAGE_SET} ${CMAKE_BINARY_DIR}/cluon-msc)
+    COMMAND ${CMAKE_BINARY_DIR}/cluon-msc --cpp-sources --cpp-add-include-file=opendlv-standard-message-set.hpp --out=${CMAKE_BINARY_DIR}/opendlv-standard-message-set.cpp ${CMAKE_CURRENT_SOURCE_DIR}/include/${OPENDLV_STANDARD_MESSAGE_SET}
+    COMMAND ${CMAKE_BINARY_DIR}/cluon-msc --cpp-headers --out=${CMAKE_BINARY_DIR}/opendlv-standard-message-set.hpp ${CMAKE_CURRENT_SOURCE_DIR}/include/${OPENDLV_STANDARD_MESSAGE_SET}
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/include/${OPENDLV_STANDARD_MESSAGE_SET} ${CMAKE_BINARY_DIR}/cluon-msc)
 
 # Add current build directory as include directory as it contains generated files.
 include_directories(SYSTEM ${CMAKE_BINARY_DIR})
@@ -79,15 +79,13 @@ include_directories(SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty)
 
 ################################################################################
 # OpenCV
-#set(CMAKE_PREFIX_PATH "/usr/local/opt/opencv3/share/OpenCV")
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
-
 ################################################################################
 # Eigen
-find_package(Eigen3 REQUIRED NO_MODULE)
-include_directories(${Eigen3_INCLUDE_DIRS})
+find_package(Eigen3 3.3 REQUIRED NO_MODULE)
+include_directories(SYSTEM "/usr/local/include/eigen3")
 
 ###############################################################################
 # OpenMP
@@ -124,14 +122,13 @@ include_directories(SYSTEM /usr/local/include)
 link_directories(SYSTEM /usr/lib) #Access g2o
 link_directories(SYSTEM /usr/local/lib) #Access g2o
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_library(${PROJECT_NAME}-core STATIC ${CMAKE_CURRENT_SOURCE_DIR}/src/detectcone.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/collector.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/cone.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/point.cpp ${CMAKE_BINARY_DIR}/opendlv-standard-message-set.cpp)
 
 # Add custom libs h
-set(LIBRARIES ${LIBRARIES} Threads::Threads ${OpenCV_LIBS} ${Eigen3_LIBS} ${TinyDNN_LIBS} ${TBB_LIBRARIES} rt) 
+set(LIBRARIES ${LIBRARIES} Threads::Threads ${OpenCV_LIBS} ${Eigen3_LIBS} ${TinyDNN_LIBS} ${TBB_LIBRARIES} rt)
 
-MESSAGE(STATUS "heej")
 MESSAGE(STATUS ${LIBRARIES})
 #${TBB_LIBRARIES}
 

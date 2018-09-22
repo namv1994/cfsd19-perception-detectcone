@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# Part to build opendlv-perception-vision-orbslam2. 
+# Part to build opendlv-perception-vision-orbslam2.
 FROM alpine:edge as builder
 MAINTAINER Christian Berger "christian.berger@gu.se"
 #Get OS stuff
@@ -36,7 +36,7 @@ WORKDIR /tmp
 ADD ./config.h /opt/sources/config.h
 
 RUN git clone https://github.com/justusc/FindTBB.git && \
-   cp FindTBB/FindTBB.cmake /usr/share/cmake/Modules/ 
+   cp FindTBB/FindTBB.cmake /usr/share/cmake/Modules/
 
 RUN git clone https://github.com/tiny-dnn/tiny-dnn.git && \
   mkdir -p tiny-dnn/build && \
