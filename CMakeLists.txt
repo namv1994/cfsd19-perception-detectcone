@@ -20,8 +20,8 @@ project(cfsd18-perception-detectcone)
 ################################################################################
 # Defining the relevant versions of OpenDLV Standard Message Set and libcluon.
 set(OPENDLV_STANDARD_MESSAGE_SET opendlv-standard-message-set-v0.9.1.odvd)
-set(CLUON_COMPLETE cluon-complete-v0.0.102.hpp)
-
+set(CLUON_COMPLETE cluon-complete-v0.0.114.hpp)
+set(CLUON_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 ################################################################################
 # This project requires C++14 or newer.
 set(CMAKE_CXX_STANDARD 14)
@@ -55,19 +55,21 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 ################################################################################
 # Extract cluon-msc from cluon-complete.hpp.
+
+execute_process(COMMAND wget -P ${CLUON_PATH} https://raw.githubusercontent.com/chrberger/libcluon/gh-pages/headeronly/${CLUON_COMPLETE})
+
 add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/cluon-msc
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_CURRENT_SOURCE_DIR}/include/${CLUON_COMPLETE} ${CMAKE_BINARY_DIR}/cluon-complete.hpp
+    COMMAND ${CMAKE_COMMAND} -E create_symlink ${CLUON_PATH}/${CLUON_COMPLETE} ${CMAKE_BINARY_DIR}/cluon-complete.hpp
     COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_BINARY_DIR}/cluon-complete.hpp ${CMAKE_BINARY_DIR}/cluon-complete.cpp
     COMMAND ${CMAKE_CXX_COMPILER} -o ${CMAKE_BINARY_DIR}/cluon-msc ${CMAKE_BINARY_DIR}/cluon-complete.cpp -std=c++14 -pthread -D HAVE_CLUON_MSC
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/include/${CLUON_COMPLETE})
+    DEPENDS ${CLUON_PATH}/${CLUON_COMPLETE})
 
 ################################################################################
 # Generate opendlv-standard-message-set.{hpp,cpp} from ${OPENDLV_STANDARD_MESSAGE_SET} file.
-add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/opendlv-standard-message-set.cpp
+add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/opendlv-standard-message-set.hpp
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    COMMAND ${CMAKE_BINARY_DIR}/cluon-msc --cpp-sources --cpp-add-include-file=opendlv-standard-message-set.hpp --out=${CMAKE_BINARY_DIR}/opendlv-standard-message-set.cpp ${CMAKE_CURRENT_SOURCE_DIR}/include/${OPENDLV_STANDARD_MESSAGE_SET}
-    COMMAND ${CMAKE_BINARY_DIR}/cluon-msc --cpp-headers --out=${CMAKE_BINARY_DIR}/opendlv-standard-message-set.hpp ${CMAKE_CURRENT_SOURCE_DIR}/include/${OPENDLV_STANDARD_MESSAGE_SET}
+    COMMAND ${CMAKE_BINARY_DIR}/cluon-msc --cpp --out=${CMAKE_BINARY_DIR}/opendlv-standard-message-set.hpp ${CMAKE_CURRENT_SOURCE_DIR}/include/${OPENDLV_STANDARD_MESSAGE_SET}
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/include/${OPENDLV_STANDARD_MESSAGE_SET} ${CMAKE_BINARY_DIR}/cluon-msc)
 
 # Add current build directory as include directory as it contains generated files.
@@ -76,7 +78,9 @@ include_directories(SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty)
 
 ################################################################################
 # Gather all object code first to avoid double compilation. This needs to be done for all added objects, can become very long? Why is this object and not static which works
-
+add_library(${PROJECT_NAME}-core STATIC ${CMAKE_CURRENT_SOURCE_DIR}/src/detectcone.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/collector.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/cone.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/point.cpp)
+add_custom_target(generate_opendlv_standard_message_set_hpp DEPENDS ${CMAKE_BINARY_DIR}/opendlv-standard-message-set.hpp)
+add_dependencies(${PROJECT_NAME}-core generate_opendlv_standard_message_set_hpp)
 ################################################################################
 # OpenCV
 find_package(OpenCV REQUIRED)
@@ -124,7 +128,6 @@ link_directories(SYSTEM /usr/local/lib) #Access g2o
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-add_library(${PROJECT_NAME}-core STATIC ${CMAKE_CURRENT_SOURCE_DIR}/src/detectcone.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/collector.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/cone.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/point.cpp ${CMAKE_BINARY_DIR}/opendlv-standard-message-set.cpp)
 
 # Add custom libs h
 set(LIBRARIES ${LIBRARIES} Threads::Threads ${OpenCV_LIBS} ${Eigen3_LIBS} ${TinyDNN_LIBS} ${TBB_LIBRARIES} rt)
