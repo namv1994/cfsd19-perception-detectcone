@@ -25,17 +25,40 @@
 | matchDistance | |
 
 
+### OD4Session message in and out
+- receive:
+  - opendlv.logic.perception.ObjectDirection (receiver stamp: 116, from sensation-attention)
+  - opendlv.logic.perception.ObjectDistance (receiver stamp: 116, from sensation-attention)
+  - opendlv.proxy.SwitchStateReading (from ?)
+- send:
+  - opendlv.system.SignalStatusMessage (sender stamp: 118)
+  - opendlv.logic.perception.ObjectDirection (sender stamp: 118)
+  - opendlv.logic.perception.ObjectDistance (sender stamp: 118)
+  - opendlv.logic.perception.ObjectType (sender stamp: 118)
+  - opendlv.logic.perception.Object (sender stamp: 118)
+
+
+### Function call graph
+
+
+### main function
+
+
 ### forwardDetectionORB
 - ORB + CNN
-- OpenCV: ORB, keypoints detection
+- create an OpenCV ORB detector, and set the maximum number of featrues to retain as 100
+- ORB detects keypoints within a specific row range of the image (does the image from left camera or right camera or a merged one?)
 - 2D position from keypoints, 3D points projected from 2D positions
-- effective region for 3D points, and also have to filter the rest key 3D points
-- map the filtered 3D points to 2D points, and extract RoI
-- patch the image with RoI
+- discard the 3D keypoints that are outside the effective region, and then filter the rest 3D keypoints further
+- map the filtered 3D points to 2D points, and extract RoI (which is cv::Rect)
+- patch the image with the RoI
 - convert the patched image to tiny_dnn inputs
-- predict the probability of the inputs with pre-trained tiny-dnn model
-- find the maxProb and the corresponding position
-- filter cones
+- given the inputs, predict the probability of each color with pre-trained tiny-dnn model
+- find the maxProb and the corresponding position for each cone
+- if annotate is true, make annotation
+- save the processed image with results as png file via an independent thread
+- call SendMatchedContainer function, send out cone direction, distance, type via OD4Session
+
 
 ### backwardDetection
 - Lidar + ORB + CNN
@@ -44,9 +67,9 @@
 -
 
 ### Questions
-- stereo camera, but it seems only one image is to be processed?
+- stereo camera, there should be two images, are they merged and then written to shared memory?
 -
 
 ### To-do
 - Refactor the name of command arguments, e.g. the "sender stamp" in perception-detectcone is named senderStamp, in sensation-attention is named "id"
--
+- 
