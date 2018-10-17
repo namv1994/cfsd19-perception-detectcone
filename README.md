@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/cfsd/cfsd18-perception-detectcone.svg?branch=master)](https://travis-ci.org/cfsd/cfsd18-perception-detectcone)
 
 ### How it works
-This microservice reads image from shared memory and extract RoI (region of interest, i.e. cone position) from image. Either ORB or Lidar+ORB is applied to find RoI. ORB (an OpenCV keypoint detector) detects keypoints or cones in the image and return back the 2D positions which are later triangulated to 3D ones. The 3D points are filtered, and then clustered via k-d tree. Median point of each cluster/group is computed, representing position of a cone. 3D points are project back to 2D positions, and we can extract RoI which is centered at the corresponding median point. However, with Lidar+ORB, lidar RoI is matched to ORB RoI, providing higher accuracy of position. With either one of the two methods, we can obtain RoI and do classification on it with CNN model. At the end, this microservice will send out messages including cone position and cone color.
+This microservice reads image from shared memory and extract RoI (region of interest, i.e. cone position) from image. Either ORB or Lidar+ORB is applied to find RoI. ORB (an OpenCV keypoint detector) detects keypoints/cones in the image and return back the 2D positions which are later triangulated to 3D ones. The 3D points are filtered, and then clustered via k-d tree. Median point of each cluster/group is computed, representing position of a cone. 3D points are project back to 2D positions, and we can extract RoI which is centered at the corresponding median point. However, with Lidar+ORB, lidar RoI is matched to ORB RoI, providing higher accuracy of position. With either one of the two methods, we can obtain RoI and do classification on it with CNN model. At the end, this microservice will send out messages including cone position and cone color.
 
 
 ### OD4Session message in and out
@@ -35,7 +35,7 @@ This microservice reads image from shared memory and extract RoI (region of inte
 | separationTimeMs | time limit of collecting a lidar cone in CollectCones function |
 | checkLidarMilliseconds | time limit of recieving lidar data |
 | senderStamp | sender stamp of this microservice (118) |
-| attentionSenderStamp | the sender stamp of sensation-attention (116) |
+| attentionSenderStamp | sender stamp of sensation-attention (116) |
 | offline | if true, will not save data from shared memory as png images, but will use the already existed png images for further processing |
 | annotate | if ture, make annotation |
 | stateMachineId | opendlv.proxy.SwitchStateReading envelope's senderstamp |
@@ -43,7 +43,6 @@ This microservice reads image from shared memory and extract RoI (region of inte
 | forwardDetection | if ture, will call forwardDetectionORB |
 | fastThreshold | size of the border where the features are not detected, set by ORB detector in backwardDetection |
 | matchDistance | [not found usage in code] |
-|
 - example usage:
 
     cfsd18-perception-detectcone --cid=${CID} --name=cam0 --width=2560 --height=720 --bpp=24 --threshold=0.6 --timeDiffMilliseconds=40 --separationTimeMs=20 --checkLidarMilliseconds=1000 --senderStamp=118 --attentionSenderStamp=116 --offline=0 --annotate=0 --stateMachineId=1401 --readyStateMachine=0 --forwardDetection=0 --fastThreshold=20 --orbPatchSize=31 --matchDistance=1.5
@@ -56,7 +55,7 @@ This microservice reads image from shared memory and extract RoI (region of inte
     - **detectcone.forwardDetectionORB(cv::Mat image)**
   - od4.dataTrigger -> envelopeRecieved  [recieve message sent by sensation-attention]
     - collector.CollectorCones(cluon::data::Envelope)
-    - (independent thread) collector.InitializeCollection()
+    - [independent thread] collector.InitializeCollection()
       - collector.SendFrame()
         - detectcone.recieveCombinedMessage(cluon::data::TimeStamp, std::map<int,ConePackage>)
           - detectcone.SendCollectorCones(Eigen::MatrixXd)
@@ -110,7 +109,22 @@ This microservice reads image from shared memory and extract RoI (region of inte
 - if offline is true, save the processed images as n_minValue.png (n = 0,1,2,..., minValue is min timestamp difference)
 
 
-### The two methods: forward and backard detection
+### labels of CNN classification
+| label name | label | comments |
+| :-----: | :-----: | :-----: |
+| "background" | 666 | none |
+| "blue" | 1 | |
+| "yellow" | 2 | |
+| "orange" | 3 | small orange cone |
+| "orange" | 4 | big orange cone |
+
+According to FSG rules:
+- the left borders of the track are marked with small blue cones
+- the right borders of the track are marked with small yellow cones
+- exit and entry lanes are marked with small orange cones
+- big orange cones will be placed before and after start, finish and timekeeping lines
+
+### forwardDetection versus backardDetection
 - if lidar is working, forwardDetection will not be utilized; but the collector will keep collecting lidar cones sent by microservice sensation-attention, and backwardDetection will be called
 - if lidar is not working, use forwardDetectioin
 - however, only using ORB detection (forwardDetection) will have problems with delay and uneven ground and cause RoI off the cone center
