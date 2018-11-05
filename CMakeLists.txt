@@ -56,14 +56,15 @@ find_package(Threads REQUIRED)
 ################################################################################
 # Extract cluon-msc from cluon-complete.hpp.
 
-execute_process(COMMAND wget -P ${CLUON_PATH} https://raw.githubusercontent.com/chrberger/libcluon/gh-pages/headeronly/${CLUON_COMPLETE})
+# Downloads a file, populates the root dir (needs to discussed if we want this...)
+# execute_process(COMMAND wget -P ${CLUON_PATH} https://raw.githubusercontent.com/chrberger/libcluon/gh-pages/headeronly/${CLUON_COMPLETE})
 
 add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/cluon-msc
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    COMMAND ${CMAKE_COMMAND} -E create_symlink ${CLUON_PATH}/${CLUON_COMPLETE} ${CMAKE_BINARY_DIR}/cluon-complete.hpp
+    COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_CURRENT_SOURCE_DIR}/include/${CLUON_COMPLETE} ${CMAKE_BINARY_DIR}/cluon-complete.hpp
     COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_BINARY_DIR}/cluon-complete.hpp ${CMAKE_BINARY_DIR}/cluon-complete.cpp
     COMMAND ${CMAKE_CXX_COMPILER} -o ${CMAKE_BINARY_DIR}/cluon-msc ${CMAKE_BINARY_DIR}/cluon-complete.cpp -std=c++14 -pthread -D HAVE_CLUON_MSC
-    DEPENDS ${CLUON_PATH}/${CLUON_COMPLETE})
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/include/${CLUON_COMPLETE})
 
 ################################################################################
 # Generate opendlv-standard-message-set.{hpp,cpp} from ${OPENDLV_STANDARD_MESSAGE_SET} file.
@@ -111,7 +112,7 @@ find_package(TBB REQUIRED)
 include_directories(${TBB_INCLUDE_DIRS})
 add_definitions(${TBB_DEFINITIONS})
 
-SET(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
+SET(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake.Modules")
 
 find_package(LibRT REQUIRED)
 set(LIBRARIES ${LIBRARIES} ${LIBRT_LIBRARIES})
@@ -122,8 +123,8 @@ include_directories(SYSTEM ${LIBRT_INCLUDE_DIR})
 
 include_directories(SYSTEM /usr/include)
 include_directories(SYSTEM /usr/local/include)
-link_directories(SYSTEM /usr/lib) #Access g2o
-link_directories(SYSTEM /usr/local/lib) #Access g2o
+# link_directories(SYSTEM /usr/lib) #Access g2o
+# link_directories(SYSTEM /usr/local/lib) #Access g2o
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 

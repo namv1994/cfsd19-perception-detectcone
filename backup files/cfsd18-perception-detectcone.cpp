@@ -28,15 +28,7 @@ int32_t main(int32_t argc, char **argv) {
         retCode = 1;
     }
     else {
-        //const uint32_t WIDTH = 2560;
-        //const uint32_t HEIGHT = 720;
-        //const uint32_t BPP = 24;
-        //bool offline = 1;
-
-        //uint32_t attentionSenderStamp = 116;
-        //uint32_t senderStamp = 118;
-        //uint32_t stateMachineStamp = 1401;
-	const uint32_t WIDTH{static_cast<uint32_t>(std::stoi(commandlineArguments["width"]))};
+        const uint32_t WIDTH{static_cast<uint32_t>(std::stoi(commandlineArguments["width"]))};
         const uint32_t HEIGHT{static_cast<uint32_t>(std::stoi(commandlineArguments["height"]))};
         const uint32_t BPP{static_cast<uint32_t>(std::stoi(commandlineArguments["bpp"]))};
         bool offline{static_cast<bool>(std::stoi(commandlineArguments["offline"]))};
@@ -47,12 +39,9 @@ int32_t main(int32_t argc, char **argv) {
 
         bool sentReadySignal = false;
 
-        //cluon::OD4Session od4{static_cast<uint16_t>(1)};
-	cluon::OD4Session od4{static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
+        cluon::OD4Session od4{static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
         DetectCone detectcone(commandlineArguments, od4);
-        //int timeOutMs = 40;
-        //int separationTimeMs = 20;
-	int timeOutMs = std::stoi(commandlineArguments["timeDiffMilliseconds"]);
+        int timeOutMs = std::stoi(commandlineArguments["timeDiffMilliseconds"]);
         int separationTimeMs = std::stoi(commandlineArguments["separationTimeMs"]);
         Collector collector(detectcone,timeOutMs,separationTimeMs,2);
 
@@ -108,7 +97,7 @@ int32_t main(int32_t argc, char **argv) {
         std::string command;
 
         if(offline) {
-		std::cout << "Offline mode" << std::endl;
+		std::cerr << argv[0] << "Offline mode" << std::endl;
             std::string fileName = "/opt/replay";
             // infile is a ifstream object  to operate on the /opt/replay file
             std::ifstream infile(fileName);

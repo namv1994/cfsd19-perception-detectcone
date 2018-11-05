@@ -78,6 +78,9 @@ void DetectCone::setUp(std::map<std::string, std::string> commandlineArguments)
   m_fastThreshold = static_cast<uint32_t>(std::stoi(commandlineArguments["fastThreshold"]));
   m_matchDistance = static_cast<float>(std::stof(commandlineArguments["matchDistance"]));
 
+  m_verbose = 1;
+  m_annotate = 0;
+	m_drivingState = 1;
   if(m_annotate){
     std::string fileName = "/opt/annotations/", command;
     std::ifstream infile(fileName);
@@ -222,6 +225,7 @@ void DetectCone::checkLidarState(){
       m_lidarIsWorking = false;
       if(m_forwardDetection){
         m_img = cv::imread("/opt/images/"+std::to_string(m_currentFrame++)+".png");
+
         forwardDetectionORB(m_img);
       }
     }
@@ -332,13 +336,29 @@ void DetectCone::CNN(const std::string& dictionary, tiny_dnn::network<tiny_dnn::
      << conv(7, 7, 3, 32, 32, tiny_dnn::padding::valid, true, 2, 2, 1, 1, backend_type) << tanh()
      << fc(3 * 3 * 32, 128, true, backend_type) << relu()
      << fc(128, 4, true, backend_type) << softmax(4);
+  std::cout << "Creating CNN model " << dictionary.c_str() << std::endl;
+  std::string command;
+  command = "echo $PWD";
+  system(command.c_str());
+  command = "ls";
+  system(command.c_str());
+
+  std::cout << "size of model" << std::endl;
+  command = "ls -l model";
+	system(command.c_str());
+
+	std::cout << "size of images folder" << std::endl;
+  command = "du -sh images";
+	system(command.c_str());
 
   std::ifstream ifs(dictionary.c_str());
+  std::cout << "model read" << std::endl;
   if (!ifs.good()){
     if(m_verbose)
       std::cout << "CNN model does not exist!" << std::endl;
     return;
   }
+  
   ifs >> model;
 }
 
@@ -544,10 +564,12 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
   //Given RoI by ORB detector and detected by CNN
   cluon::data::TimeStamp timestamp = cluon::time::now();
   // std::lock_guard<std::mutex> lockStateMachine(m_stateMachineMutex);
+  
   if(!m_drivingState)
   {
     return;
   }
+
   std::vector<Cone> cones;
   std::vector<tiny_dnn::tensor_t> inputs;
   std::vector<int> verifiedIndex;
@@ -577,7 +599,11 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
   if(keypoints.size()==0)
     return;
 
-  cv::Mat probMap[4] = cv::Mat::zeros(m_height, m_width, CV_64F);
+	// Fix initialization of probMap[4]
+	cv::Mat probMap[4];
+	for(size_t i = 0; i < 4; i++){
+		probMap[i] = cv::Mat::zeros(m_height, m_width, CV_64F);
+	}
 
   std::vector<cv::Point3f> point3Ds;
   cv::Point point2D;
@@ -592,6 +618,7 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
   }
   if(point3Ds.size()==0)
     return;
+
   filterKeypoints(point3Ds);
   for(size_t i = 0; i < point3Ds.size(); i++){
     int radius = xyz2xy(Q, point3Ds[i], point2D, 0.3f);
@@ -613,7 +640,7 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
       candidates.push_back(cv::Point(x,y));
     }
   }
-
+  
   if(inputs.size()>0){
     auto prob = m_model.predict(inputs);
     for(size_t i = 0; i < inputs.size(); i++){
@@ -625,11 +652,13 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
           maxProb = prob[i][0][j];
         }
       }
+
       int x = candidates[i].x;
       int y = candidates[i].y;
       if(maxIndex > 0)
         probMap[maxIndex].at<double>(y,x) = maxProb;
     }
+
     for(size_t i = 0; i < 4; i++){
       imRegionalMax(cones, i, probMap[i], 10, m_threshold, 10);
     }
@@ -680,7 +709,10 @@ void DetectCone::forwardDetectionORB(cv::Mat img){
   cv::Mat outImg;
   cv::flip(result, result, 0);
   cv::hconcat(img,result,outImg);
-
+  
+  //Show the result
+  //cv::imshow( "Display window", outImg ); 
+   
   std::string saveString = m_folderName+std::to_string(m_currentFrame)+".png";
   std::thread imWriteThread(&DetectCone::saveImages,this,saveString,outImg);
   imWriteThread.detach();

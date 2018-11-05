@@ -14,14 +14,14 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # Part to build opendlv-perception-vision-orbslam2.
-FROM alpine:edge as builder
+FROM alpine:3.8 as builder
 MAINTAINER Christian Berger "christian.berger@gu.se"
 #Get OS stuff
 RUN echo "@testing http://nl.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories
-RUN apk update && \
+RUN apk update && apk upgrade && \
     apk --no-cache add \
         cmake \
-        #bash \
+        bash \
         g++ \
         make \
         upx \
@@ -30,30 +30,40 @@ RUN apk update && \
         libmount \
         libtbb@testing \
         libtbb-dev@testing \
-        opencv-dev@testing
+        opencv@testing \
+        opencv-dev@testing \
+       	libgomp \
+        libtbb@testing \
+        libtbb-dev@testing \
+        openblas \
+        openblas-dev
 
 WORKDIR /tmp
-ADD ./config.h /opt/sources/config.h
+# ADD ./include/config.h /opt/sources/config.h
 
+# Why do we have this if we have a similar cmake.Modules folder? Should we have a similar approach?
 RUN git clone https://github.com/justusc/FindTBB.git && \
    cp FindTBB/FindTBB.cmake /usr/share/cmake/Modules/
-
-RUN git clone https://github.com/tiny-dnn/tiny-dnn.git && \
-  mkdir -p tiny-dnn/build && \
-  cp /opt/sources/config.h tiny-dnn/tiny_dnn/config.h && \
-  cd tiny-dnn/build && \
-  cmake .. && \
-  make install
 
 RUN git clone https://github.com/eigenteam/eigen-git-mirror.git && \
    mkdir -p eigen-git-mirror/build && \
    cd eigen-git-mirror/build && \
    cmake .. && \
    make install
-RUN echo "@testing http://nl.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories
-RUN apk update && \
-    apk --no-cache add \
-opencv@testing
+
+RUN git clone https://github.com/tiny-dnn/tiny-dnn.git && \
+  mkdir -p tiny-dnn/build && \
+  cd tiny-dnn/build && \
+  # Temp fix for the recent compilation error
+  git checkout 1aec6a1ece0ba7a5e018a070bd52e045d49d1411 && \
+  # cp /opt/sources/config.h /tmp/tiny-dnn/tiny_dnn/config.h && \
+  cmake -DUSE_TBB=ON -DUSE_OMP=ON .. && \
+  make install
+
+# RUN echo "@testing http://nl.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories
+# RUN apk update && \
+#     apk --no-cache add \
+# opencv@testing
 
 ADD . /opt/sources/
 
@@ -65,11 +75,13 @@ RUN mkdir -p build && \
     make -j3 && make test && make install && upx -9 /tmp/cfsd18-perception-detectcone-dest/bin/cfsd18-perception-detectcone
 
 # Part to deploy opendlv-perception-vision-orbslam2
-FROM alpine:edge
+FROM alpine:3.8
 MAINTAINER Christian Berger "christian.berger@gu.se"
 
 #Start microservice
 WORKDIR /usr/bin
+# This will make the image heavy... Do we need all of them?
+# This could be slimmed down
 COPY --from=builder /usr/local/include/ /usr/include/
 COPY --from=builder /usr/local/lib/ /usr/lib/
 COPY --from=builder /usr/lib/ /usr/lib/
